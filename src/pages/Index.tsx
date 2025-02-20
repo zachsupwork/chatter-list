@@ -13,16 +13,16 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowUpDown, Phone } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
-// Updated interface to match Retell API types
 interface CallData {
   call_id: string;
   call_type: string;
   call_status: string;
-  start_timestamp?: number; // Made optional to match API type
-  end_timestamp?: number; // Made optional to match API type
-  disconnection_reason?: string; // Made optional to match API type
-  transcript?: string; // Made optional to match API type
+  start_timestamp?: number;
+  end_timestamp?: number;
+  disconnection_reason?: string;
+  transcript?: string;
 }
 
 const Index = () => {
@@ -33,16 +33,14 @@ const Index = () => {
   useEffect(() => {
     const fetchCalls = async () => {
       try {
-        const Retell = (await import("retell-sdk")).default;
-        const client = new Retell({
-          apiKey: "key_bc69ed16c81fa347d618b4763cb7"
-        });
+        const { data: functionData, error: functionError } = await supabase.functions.invoke('retell-calls');
+        
+        if (functionError) {
+          throw functionError;
+        }
 
-        // Add empty object as argument to match expected parameters
-        const response = await client.call.list({});
-        console.log('API Response:', response); // Add logging to debug
-        if (Array.isArray(response)) {
-          setCalls(response as CallData[]); // Type assertion to match our interface
+        if (Array.isArray(functionData)) {
+          setCalls(functionData as CallData[]);
         } else {
           throw new Error('Invalid response format');
         }
