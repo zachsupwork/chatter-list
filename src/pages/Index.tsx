@@ -14,14 +14,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowUpDown, Phone } from "lucide-react";
 
+// Updated interface to match Retell API types
 interface CallData {
   call_id: string;
   call_type: string;
   call_status: string;
-  start_timestamp: number;
-  end_timestamp: number;
-  disconnection_reason: string;
-  transcript: string;
+  start_timestamp?: number; // Made optional to match API type
+  end_timestamp?: number; // Made optional to match API type
+  disconnection_reason?: string; // Made optional to match API type
+  transcript?: string; // Made optional to match API type
 }
 
 const Index = () => {
@@ -34,11 +35,12 @@ const Index = () => {
       try {
         const Retell = (await import("retell-sdk")).default;
         const client = new Retell({
-          apiKey: "" // We'll handle this securely
+          apiKey: "key_bc69ed16c81fa347d618b4763cb7" // We'll handle this securely later
         });
 
-        const response = await client.call.list();
-        setCalls(response);
+        // Add empty object as argument to match expected parameters
+        const response = await client.call.list({});
+        setCalls(response as CallData[]); // Type assertion to match our interface
         setLoading(false);
       } catch (err) {
         setError("Failed to fetch calls");
@@ -132,12 +134,14 @@ const Index = () => {
                       <TableCell className="font-mono">{call.call_id}</TableCell>
                       <TableCell>{call.call_type}</TableCell>
                       <TableCell>
-                        {formatDistanceToNow(call.start_timestamp, {
-                          addSuffix: true,
-                        })}
+                        {call.start_timestamp
+                          ? formatDistanceToNow(call.start_timestamp, {
+                              addSuffix: true,
+                            })
+                          : "-"}
                       </TableCell>
                       <TableCell>
-                        {call.end_timestamp
+                        {call.end_timestamp && call.start_timestamp
                           ? `${Math.round(
                               (call.end_timestamp - call.start_timestamp) / 1000
                             )}s`
