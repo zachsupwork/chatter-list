@@ -35,12 +35,17 @@ const Index = () => {
       try {
         const Retell = (await import("retell-sdk")).default;
         const client = new Retell({
-          apiKey: "key_bc69ed16c81fa347d618b4763cb7" // We'll handle this securely later
+          apiKey: "key_bc69ed16c81fa347d618b4763cb7"
         });
 
         // Add empty object as argument to match expected parameters
         const response = await client.call.list({});
-        setCalls(response as CallData[]); // Type assertion to match our interface
+        console.log('API Response:', response); // Add logging to debug
+        if (Array.isArray(response)) {
+          setCalls(response as CallData[]); // Type assertion to match our interface
+        } else {
+          throw new Error('Invalid response format');
+        }
         setLoading(false);
       } catch (err) {
         setError("Failed to fetch calls");
