@@ -32,6 +32,10 @@ serve(async (req) => {
         url += 'create-phone-call'
         body = { from_number, to_number }
         break
+      case 'listAgents':
+        url = 'https://api.retellai.com/list-agents'
+        method = 'GET'
+        break
       case 'get':
         url += `get-call/${call_id}`
         method = 'GET'
@@ -46,7 +50,9 @@ serve(async (req) => {
     }
 
     console.log('Making request to:', url)
-    console.log('With body:', JSON.stringify(body))
+    if (method !== 'GET') {
+      console.log('With body:', JSON.stringify(body))
+    }
 
     const response = await fetch(url, {
       method,
@@ -59,7 +65,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(error.error?.message || `Failed to ${action} call`)
+      throw new Error(error.error?.message || `Failed to ${action}`)
     }
 
     const data = await response.json()
