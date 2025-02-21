@@ -43,14 +43,6 @@ interface CallData {
   };
 }
 
-interface KnowledgeBaseData {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 const Index = () => {
   const [calls, setCalls] = useState<CallData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,8 +78,13 @@ const Index = () => {
           throw new Error(functionError.message);
         }
 
-        console.log('Received data:', functionData);
-        setCalls(functionData?.calls || []);
+        console.log('Received function data:', functionData);
+
+        // Ensure we have an array of calls
+        const callsArray = Array.isArray(functionData?.calls) ? functionData.calls : [];
+        console.log('Processed calls array:', callsArray);
+        
+        setCalls(callsArray);
       } catch (err: any) {
         const errorMessage = err.message || "Failed to fetch data";
         console.error("Error fetching data:", err);
@@ -169,6 +166,7 @@ const Index = () => {
               </TableHeader>
               <TableBody>
                 {loading ? (
+                  // Show loading skeleton rows
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       {Array.from({ length: 11 }).map((_, j) => (
@@ -178,7 +176,8 @@ const Index = () => {
                       ))}
                     </TableRow>
                   ))
-                ) : calls.length > 0 ? (
+                ) : calls && calls.length > 0 ? (
+                  // Show calls data
                   calls.map((call) => (
                     <TableRow key={call.call_id} className="hover:bg-gray-50">
                       <TableCell>
@@ -245,6 +244,7 @@ const Index = () => {
                     </TableRow>
                   ))
                 ) : (
+                  // Show empty state
                   <TableRow>
                     <TableCell colSpan={11} className="text-center py-8">
                       No calls found

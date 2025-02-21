@@ -40,6 +40,7 @@ serve(async (req) => {
         url += `get-call/${call_id}`
         method = 'GET'
         break
+      case 'listCalls':
       default:
         url += 'list-calls'
         body = {
@@ -63,16 +64,24 @@ serve(async (req) => {
       ...(method === 'GET' ? {} : { body: JSON.stringify(body) })
     })
 
+    const responseData = await response.json()
+    console.log('Raw response data:', responseData)
+
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error?.message || `Failed to ${action}`)
+      throw new Error(responseData.error?.message || `Failed to ${action}`)
     }
 
-    const data = await response.json()
-    console.log('Response data:', data)
+    // Transform response for listCalls action
+    if (action === 'listCalls' || !action) {
+      return new Response(
+        JSON.stringify({ calls: responseData }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
+    // For other actions, return the raw response
     return new Response(
-      JSON.stringify(data),
+      JSON.stringify(responseData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
