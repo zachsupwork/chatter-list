@@ -106,22 +106,52 @@ const Call = () => {
   useEffect(() => {
     const fetchCall = async () => {
       try {
-        const { data: functionData, error: functionError } = await supabase.functions.invoke(
+        console.log('Fetching call details for ID:', callId);
+
+        // First try to get from the list endpoint
+        const { data: listData, error: listError } = await supabase.functions.invoke(
           'retell-calls',
           {
-            body: { call_id: callId },
+            body: { 
+              filter_criteria: {
+                call_id: [callId]
+              }
+            },
           }
         );
 
-        if (functionError) {
-          throw new Error(functionError.message);
+        if (listError) {
+          throw new Error(listError.message);
         }
 
-        if (!functionData) {
-          throw new Error('No data received from the API');
+        if (listData?.calls?.[0]) {
+          console.log('Call data found:', listData.calls[0]);
+          setCall(listData.calls[0]);
+          setLoading(false);
+          return;
         }
 
-        setCall(functionData as CallData);
+        // If not found in list, try the individual get endpoint
+        const { data: singleData, error: singleError } = await supabase.functions.invoke(
+          'retell-calls',
+          {
+            body: { 
+              action: 'get',
+              call_id: callId 
+            },
+          }
+        );
+
+        if (singleError) {
+          throw new Error(singleError.message);
+        }
+
+        if (!singleData) {
+          throw new Error('Call not found');
+        }
+
+        console.log('Call data found:', singleData);
+        setCall(singleData);
         setLoading(false);
       } catch (err: any) {
         const errorMessage = err.message || "Failed to fetch call details";
@@ -224,7 +254,9 @@ const Call = () => {
               </div>
               <div className="space-y-2">
                 <p className="text-sm text-gray-500">Type</p>
-                <Badge variant="outline">{call?.call_type}</Badge>
+                <Badge variant="outline" className="capitalize">
+                  {call?.call_type?.replace('_', ' ')}
+                </Badge>
               </div>
               {call?.direction && (
                 <div className="space-y-2">
@@ -234,6 +266,14 @@ const Call = () => {
                   </Badge>
                 </div>
               )}
+              <div className="space-y-2">
+                <p className="text-sm text-gray-500">From Number</p>
+                <p className="font-mono text-sm">{call?.from_number || '-'}</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-500">To Number</p>
+                <p className="font-mono text-sm">{call?.to_number || '-'}</p>
+              </div>
               <div className="space-y-2">
                 <p className="text-sm text-gray-500">Agent ID</p>
                 <p className="font-mono text-sm">{call?.agent_id}</p>
@@ -245,6 +285,10 @@ const Call = () => {
                     ? `${Math.round((call.end_timestamp - call.start_timestamp) / 1000)}s`
                     : "-"}
                 </p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-500">Started</p>
+                <p>{formatDate(call?.start_timestamp)}</p>
               </div>
             </div>
           </CardContent>

@@ -1,62 +1,70 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import Retell from "https://esm.sh/retell-sdk@4.19.0";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
-serve(async (req: Request) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Verify API key is present
-    const retellApiKey = Deno.env.get('RETELL_API_KEY');
-    if (!retellApiKey) {
-      console.error('RETELL_API_KEY is not set');
-      throw new Error('Missing Retell API key configuration');
+    const { action, call_id, filter_criteria, limit = 50 } = await req.json()
+
+    const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
+    if (!RETELL_API_KEY) {
+      throw new Error('RETELL_API_KEY is required')
     }
 
-    console.log('Initializing Retell client with API key...');
-    const client = new Retell({
-      apiKey: retellApiKey
-    });
+    let url = 'https://api.retellai.com/v2/'
+    let body = {}
 
-    console.log('Starting API calls...');
-    
-    try {
-      const [calls, knowledgeBases] = await Promise.all([
-        client.call.list({}),
-        client.knowledgeBase.list()
-      ]);
-
-      console.log('Successfully fetched data:');
-      console.log('- Calls count:', calls?.length || 0);
-      console.log('- Knowledge Bases count:', knowledgeBases?.length || 0);
-
-      return new Response(JSON.stringify({
-        calls: calls || [],
-        knowledgeBases: knowledgeBases || []
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
-    } catch (apiError) {
-      console.error('Retell API Error:', apiError);
-      throw new Error(`Retell API error: ${apiError.message}`);
+    if (action === 'get' && call_id) {
+      url += `get-call/${call_id}`
+    } else {
+      url += 'list-calls'
+      body = {
+        filter_criteria,
+        limit,
+        sort_order: 'descending'
+      }
     }
+
+    console.log('Making request to:', url)
+    console.log('With body:', JSON.stringify(body))
+
+    const response = await fetch(url, {
+      method: action === 'get' ? 'GET' : 'POST',
+      headers: {
+        'Authorization': `Bearer ${RETELL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      ...(action === 'get' ? {} : { body: JSON.stringify(body) })
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error?.message || `Failed to ${action} call`)
+    }
+
+    const data = await response.json()
+    console.log('Response data:', data)
+
+    return new Response(
+      JSON.stringify(action === 'get' ? data : { calls: Array.isArray(data) ? data : [data] }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   } catch (error) {
-    console.error('Function error:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      details: 'Check function logs for more information'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    console.error('Error:', error)
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
   }
-});
+})
