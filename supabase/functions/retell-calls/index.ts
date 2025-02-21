@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, call_id, filter_criteria, limit = 50 } = await req.json()
+    const { action, call_id, filter_criteria, limit = 50, from_number, to_number } = await req.json()
 
     const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
     if (!RETELL_API_KEY) {
@@ -20,29 +20,37 @@ serve(async (req) => {
     }
 
     let url = 'https://api.retellai.com/v2/'
-    let body = {}
+    let method = 'POST'
+    let body: any = {}
 
-    if (action === 'get' && call_id) {
-      url += `get-call/${call_id}`
-    } else {
-      url += 'list-calls'
-      body = {
-        filter_criteria,
-        limit,
-        sort_order: 'descending'
-      }
+    switch (action) {
+      case 'createPhoneCall':
+        url += 'create-phone-call'
+        body = { from_number, to_number }
+        break
+      case 'get':
+        url += `get-call/${call_id}`
+        method = 'GET'
+        break
+      default:
+        url += 'list-calls'
+        body = {
+          filter_criteria,
+          limit,
+          sort_order: 'descending'
+        }
     }
 
     console.log('Making request to:', url)
     console.log('With body:', JSON.stringify(body))
 
     const response = await fetch(url, {
-      method: action === 'get' ? 'GET' : 'POST',
+      method,
       headers: {
         'Authorization': `Bearer ${RETELL_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      ...(action === 'get' ? {} : { body: JSON.stringify(body) })
+      ...(method === 'GET' ? {} : { body: JSON.stringify(body) })
     })
 
     if (!response.ok) {
@@ -54,7 +62,7 @@ serve(async (req) => {
     console.log('Response data:', data)
 
     return new Response(
-      JSON.stringify(action === 'get' ? data : { calls: Array.isArray(data) ? data : [data] }),
+      JSON.stringify(action === 'get' ? data : action === 'createPhoneCall' ? data : { calls: Array.isArray(data) ? data : [data] }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
