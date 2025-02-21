@@ -35,7 +35,8 @@ const CreateWebCall = () => {
 
         if (error) throw error;
 
-        setAgents(data || []);
+        // Ensure we have an array of agents, even if the response is empty or malformed
+        setAgents(Array.isArray(data) ? data : []);
       } catch (err: any) {
         console.error('Error fetching agents:', err);
         toast({
@@ -43,6 +44,8 @@ const CreateWebCall = () => {
           title: "Error fetching agents",
           description: err.message || "Failed to load agents",
         });
+        // Initialize with empty array on error
+        setAgents([]);
       } finally {
         setFetchingAgents(false);
       }
