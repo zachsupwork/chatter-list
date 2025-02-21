@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,7 +9,10 @@ const corsHeaders = {
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: corsHeaders,
+      status: 200
+    });
   }
 
   try {
@@ -18,7 +20,16 @@ serve(async (req) => {
     const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY');
 
     if (!RETELL_API_KEY) {
-      throw new Error('RETELL_API_KEY is not set');
+      return new Response(
+        JSON.stringify({ error: 'RETELL_API_KEY is not set' }),
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        }
+      );
     }
 
     const headers = {
@@ -27,70 +38,130 @@ serve(async (req) => {
       ...corsHeaders
     };
 
+    let response;
+    let data;
+
     switch (action) {
       case 'listAgents': {
         console.log('Fetching agents...');
-        const response = await fetch('https://api.retellai.com/v2/list-agents', {
+        response = await fetch('https://api.retellai.com/v2/list-agents', {
           method: 'GET',
-          headers
+          headers: {
+            'Authorization': `Bearer ${RETELL_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
         });
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to fetch agents');
-        }
-
-        return new Response(JSON.stringify(data), { headers: corsHeaders });
+        data = await response.json();
+        
+        return new Response(
+          JSON.stringify(data),
+          { 
+            status: response.status,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        );
       }
 
       case 'createWebCall': {
         if (!agent_id) {
-          throw new Error('agent_id is required');
+          return new Response(
+            JSON.stringify({ error: 'agent_id is required' }),
+            { 
+              status: 400,
+              headers: {
+                'Content-Type': 'application/json',
+                ...corsHeaders
+              }
+            }
+          );
         }
 
         console.log('Creating web call for agent:', agent_id);
-        const response = await fetch('https://api.retellai.com/v2/create-web-call', {
+        response = await fetch('https://api.retellai.com/v2/create-web-call', {
           method: 'POST',
-          headers,
+          headers: {
+            'Authorization': `Bearer ${RETELL_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({ agent_id })
         });
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to create web call');
-        }
-
-        return new Response(JSON.stringify(data), { headers: corsHeaders });
+        data = await response.json();
+        
+        return new Response(
+          JSON.stringify(data),
+          { 
+            status: response.status,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        );
       }
 
       case 'get': {
         if (!call_id) {
-          throw new Error('call_id is required');
+          return new Response(
+            JSON.stringify({ error: 'call_id is required' }),
+            { 
+              status: 400,
+              headers: {
+                'Content-Type': 'application/json',
+                ...corsHeaders
+              }
+            }
+          );
         }
 
         console.log('Fetching call details for:', call_id);
-        const response = await fetch(`https://api.retellai.com/v2/get-call/${call_id}`, {
+        response = await fetch(`https://api.retellai.com/v2/get-call/${call_id}`, {
           method: 'GET',
-          headers
+          headers: {
+            'Authorization': `Bearer ${RETELL_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
         });
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to fetch call details');
-        }
-
-        return new Response(JSON.stringify(data), { headers: corsHeaders });
+        data = await response.json();
+        
+        return new Response(
+          JSON.stringify(data),
+          { 
+            status: response.status,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        );
       }
 
       default:
-        throw new Error('Invalid action');
+        return new Response(
+          JSON.stringify({ error: 'Invalid action' }),
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        );
     }
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message || 'Internal server error',
+        details: error
+      }),
       { 
-        status: 400, 
+        status: 500,
         headers: {
           'Content-Type': 'application/json',
           ...corsHeaders
