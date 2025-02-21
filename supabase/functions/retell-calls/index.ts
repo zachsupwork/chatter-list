@@ -29,11 +29,19 @@ serve(async (req: Request) => {
       apiKey: retellApiKey
     });
 
-    console.log('Fetching calls from Retell API...');
-    const response = await client.call.list({});
-    console.log('Retell API response:', response);
+    console.log('Fetching calls and knowledge base data...');
+    const [calls, knowledgeBases] = await Promise.all([
+      client.call.list({}),
+      client.knowledgeBase.list()
+    ]);
+
+    console.log('Retell API response - Calls:', calls);
+    console.log('Retell API response - Knowledge Bases:', knowledgeBases);
     
-    return new Response(JSON.stringify(response), {
+    return new Response(JSON.stringify({
+      calls,
+      knowledgeBases
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

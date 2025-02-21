@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowUpDown, Phone } from "lucide-react";
+import { ArrowUpDown, Phone, Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CallData {
@@ -25,13 +25,26 @@ interface CallData {
   transcript?: string;
 }
 
+interface KnowledgeBaseData {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ApiResponse {
+  calls: CallData[];
+  knowledgeBases: KnowledgeBaseData[];
+}
+
 const Index = () => {
-  const [calls, setCalls] = useState<CallData[]>([]);
+  const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchCalls = async () => {
+    const fetchData = async () => {
       try {
         const { data: functionData, error: functionError } = await supabase.functions.invoke('retell-calls');
         
@@ -39,20 +52,20 @@ const Index = () => {
           throw functionError;
         }
 
-        if (Array.isArray(functionData)) {
-          setCalls(functionData as CallData[]);
+        if (functionData && 'calls' in functionData && 'knowledgeBases' in functionData) {
+          setData(functionData as ApiResponse);
         } else {
           throw new Error('Invalid response format');
         }
         setLoading(false);
       } catch (err) {
-        setError("Failed to fetch calls");
+        setError("Failed to fetch data");
         setLoading(false);
-        console.error("Error fetching calls:", err);
+        console.error("Error fetching data:", err);
       }
     };
 
-    fetchCalls();
+    fetchData();
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -84,6 +97,55 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      {/* Knowledge Base Section */}
+      <Card className="max-w-7xl mx-auto mb-8">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-semibold flex items-center gap-2">
+              <Database className="h-6 w-6" />
+              Knowledge Bases
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="relative overflow-x-auto rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 4 }).map((_, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-[100px]" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  data?.knowledgeBases.map((kb) => (
+                    <TableRow key={kb.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">{kb.name}</TableCell>
+                      <TableCell>{kb.description || '-'}</TableCell>
+                      <TableCell>{formatDistanceToNow(new Date(kb.created_at), { addSuffix: true })}</TableCell>
+                      <TableCell>{formatDistanceToNow(new Date(kb.updated_at), { addSuffix: true })}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Calls Section */}
       <Card className="max-w-7xl mx-auto">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -123,7 +185,7 @@ const Index = () => {
                     </TableRow>
                   ))
                 ) : (
-                  calls.map((call) => (
+                  data?.calls.map((call) => (
                     <TableRow key={call.call_id} className="hover:bg-gray-50">
                       <TableCell>
                         <Badge
