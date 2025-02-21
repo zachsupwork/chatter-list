@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
+import { RetellWebClient } from "retell-client-js-sdk";
 import {
   AlertCircle,
   ArrowLeft,
@@ -14,7 +16,9 @@ import {
   Headphones,
   MessageSquare,
   Phone,
+  PhoneCall,
   User,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -90,18 +94,10 @@ const Call = () => {
   const [call, setCall] = useState<CallData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const { toast } = useToast();
-
-  const formatDate = (date: number | undefined) => {
-    if (!date) return "-";
-    try {
-      const dateObj = new Date(date);
-      return formatDistanceToNow(dateObj, { addSuffix: true });
-    } catch (err) {
-      console.warn('Invalid date format:', date);
-      return "-";
-    }
-  };
+  const retellWebClient = new RetellWebClient();
 
   useEffect(() => {
     const fetchCall = async () => {
@@ -172,6 +168,85 @@ const Call = () => {
     }
   }, [callId]);
 
+  const setupCallListeners = () => {
+    retellWebClient.on("call_started", () => {
+      console.log("call started");
+      toast({
+        title: "Call Started",
+        description: "You are now connected to the agent.",
+      });
+    });
+
+    retellWebClient.on("call_ended", () => {
+      console.log("call ended");
+      setIsCallActive(false);
+      toast({
+        title: "Call Ended",
+        description: "The call has been disconnected.",
+      });
+    });
+
+    retellWebClient.on("agent_start_talking", () => {
+      console.log("agent started talking");
+    });
+
+    retellWebClient.on("agent_stop_talking", () => {
+      console.log("agent stopped talking");
+    });
+
+    retellWebClient.on("error", (error) => {
+      console.error("Call error:", error);
+      toast({
+        variant: "destructive",
+        title: "Call Error",
+        description: error.message || "An error occurred during the call",
+      });
+      retellWebClient.stopCall();
+      setIsCallActive(false);
+      setIsTesting(false);
+    });
+  };
+
+  const handleTestCall = async () => {
+    if (!call?.agent_id) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No agent ID available for testing",
+      });
+      return;
+    }
+
+    setIsTesting(true);
+
+    try {
+      // Set up event listeners
+      setupCallListeners();
+
+      // Start the call
+      await retellWebClient.startCall({
+        accessToken: call.access_token,
+        sampleRate: 24000,
+      });
+
+      setIsCallActive(true);
+    } catch (err: any) {
+      console.error("Error starting test call:", err);
+      toast({
+        variant: "destructive",
+        title: "Error starting call",
+        description: err.message || "Failed to start test call",
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleEndCall = () => {
+    retellWebClient.stopCall();
+    setIsCallActive(false);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "ongoing":
@@ -222,7 +297,7 @@ const Call = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between">
           <Link
             to="/"
             className="inline-flex items-center gap-2 text-blue-500 hover:text-blue-700 transition-colors"
@@ -230,6 +305,36 @@ const Call = () => {
             <ArrowLeft className="h-4 w-4" />
             Back to calls
           </Link>
+
+          {call?.call_status === "registered" && !isCallActive && (
+            <Button 
+              onClick={handleTestCall}
+              disabled={isTesting || isCallActive}
+              className="bg-green-500 hover:bg-green-600"
+            >
+              {isTesting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <PhoneCall className="mr-2 h-4 w-4" />
+                  Test Call
+                </>
+              )}
+            </Button>
+          )}
+
+          {isCallActive && (
+            <Button 
+              variant="destructive"
+              onClick={handleEndCall}
+            >
+              <Phone className="mr-2 h-4 w-4" />
+              End Call
+            </Button>
+          )}
         </div>
 
         {/* Basic Call Information */}
