@@ -1,12 +1,13 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2 } from "lucide-react";
+import { Video, Loader2, PhoneOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { RetellWebClient } from "retell-client-js-sdk";
 
 interface Agent {
   agent_id: string;
@@ -18,8 +19,10 @@ const CreateWebCall = () => {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetchingAgents, setFetchingAgents] = useState(true);
+  const [isCallActive, setIsCallActive] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const retellClientRef = useRef<RetellWebClient | null>(null);
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -49,7 +52,80 @@ const CreateWebCall = () => {
     };
 
     fetchAgents();
+
+    // Cleanup function to ensure we stop any active calls when component unmounts
+    return () => {
+      if (retellClientRef.current) {
+        retellClientRef.current.stopCall();
+      }
+    };
   }, []);
+
+  const setupCallListeners = (client: RetellWebClient) => {
+    client.on("call_started", () => {
+      console.log("Call started");
+      toast({
+        title: "Call started",
+        description: "You are now connected to the agent",
+      });
+    });
+
+    client.on("call_ended", () => {
+      console.log("Call ended");
+      setIsCallActive(false);
+      toast({
+        title: "Call ended",
+        description: "The call has been disconnected",
+      });
+    });
+
+    client.on("agent_start_talking", () => {
+      console.log("Agent started talking");
+    });
+
+    client.on("agent_stop_talking", () => {
+      console.log("Agent stopped talking");
+    });
+
+    client.on("update", (update) => {
+      console.log("Call update:", update);
+    });
+
+    client.on("error", (error) => {
+      console.error("Call error:", error);
+      toast({
+        variant: "destructive",
+        title: "Call error",
+        description: error.message || "An error occurred during the call",
+      });
+      client.stopCall();
+      setIsCallActive(false);
+    });
+  };
+
+  const startCall = async (accessToken: string) => {
+    try {
+      const client = new RetellWebClient();
+      retellClientRef.current = client;
+      
+      setupCallListeners(client);
+
+      await client.startCall({
+        accessToken,
+        sampleRate: 24000,
+      });
+
+      setIsCallActive(true);
+    } catch (err: any) {
+      console.error('Error starting call:', err);
+      toast({
+        variant: "destructive",
+        title: "Error starting call",
+        description: err.message || "Failed to start the call",
+      });
+      setIsCallActive(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,10 +145,14 @@ const CreateWebCall = () => {
       if (error) throw error;
 
       toast({
-        title: "Web call created successfully",
-        description: `Call ID: ${data.call_id}`,
+        title: "Web call created",
+        description: "Connecting to agent...",
       });
 
+      // Start the call with the received access token
+      await startCall(data.access_token);
+      
+      // Navigate to call page
       navigate(`/calls/${data.call_id}`);
     } catch (err: any) {
       console.error('Error creating web call:', err);
@@ -83,6 +163,17 @@ const CreateWebCall = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEndCall = () => {
+    if (retellClientRef.current) {
+      retellClientRef.current.stopCall();
+      setIsCallActive(false);
+      toast({
+        title: "Call ended",
+        description: "You have ended the call",
+      });
     }
   };
 
@@ -134,20 +225,34 @@ const CreateWebCall = () => {
                 </p>
               </div>
 
-              <Button 
-                type="submit" 
-                disabled={loading || fetchingAgents || !selectedAgentId}
-                className="w-full"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create Web Call"
+              <div className="flex gap-4">
+                <Button 
+                  type="submit" 
+                  disabled={loading || fetchingAgents || !selectedAgentId || isCallActive}
+                  className="flex-1"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Start Call"
+                  )}
+                </Button>
+
+                {isCallActive && (
+                  <Button 
+                    type="button"
+                    variant="destructive"
+                    onClick={handleEndCall}
+                    className="flex-1"
+                  >
+                    <PhoneOff className="mr-2 h-4 w-4" />
+                    End Call
+                  </Button>
                 )}
-              </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
