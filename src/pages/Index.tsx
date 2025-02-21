@@ -12,8 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowUpDown, Phone, Database } from "lucide-react";
+import { ArrowUpDown, Phone, Database, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface CallData {
   call_id: string;
@@ -42,26 +43,46 @@ const Index = () => {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('Fetching data from Retell API...');
         const { data: functionData, error: functionError } = await supabase.functions.invoke('retell-calls');
         
+        console.log('Response:', { functionData, functionError });
+        
         if (functionError) {
-          throw functionError;
+          throw new Error(functionError.message);
         }
 
-        if (functionData && 'calls' in functionData && 'knowledgeBases' in functionData) {
-          setData(functionData as ApiResponse);
-        } else {
-          throw new Error('Invalid response format');
+        if (!functionData) {
+          throw new Error('No data received from the API');
         }
+
+        if ('error' in functionData) {
+          throw new Error(functionData.error);
+        }
+
+        if (!('calls' in functionData) || !('knowledgeBases' in functionData)) {
+          console.error('Invalid response structure:', functionData);
+          throw new Error('Invalid response format from API');
+        }
+
+        setData(functionData as ApiResponse);
         setLoading(false);
-      } catch (err) {
-        setError("Failed to fetch data");
-        setLoading(false);
+      } catch (err: any) {
+        const errorMessage = err.message || "Failed to fetch data";
         console.error("Error fetching data:", err);
+        setError(errorMessage);
+        setLoading(false);
+        
+        toast({
+          variant: "destructive",
+          title: "Error fetching data",
+          description: errorMessage,
+        });
       }
     };
 
@@ -86,8 +107,15 @@ const Index = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-red-500">{error}</p>
+            <div className="text-center space-y-4">
+              <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
+              <p className="text-red-500 font-medium">{error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                Retry
+              </button>
             </div>
           </CardContent>
         </Card>
