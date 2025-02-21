@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,6 +97,16 @@ const Call = () => {
   const [isTesting, setIsTesting] = useState(false);
   const { toast } = useToast();
   const retellWebClient = new RetellWebClient();
+
+  const formatDate = (timestamp?: number) => {
+    if (!timestamp) return "-";
+    try {
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    } catch (err) {
+      console.warn('Invalid date format:', timestamp);
+      return "-";
+    }
+  };
 
   useEffect(() => {
     const fetchCall = async () => {
