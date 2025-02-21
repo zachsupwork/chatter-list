@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -52,8 +51,10 @@ interface KnowledgeBaseData {
 }
 
 interface ApiResponse {
-  calls: CallData[];
-  knowledgeBases: KnowledgeBaseData[];
+  data: {
+    calls: CallData[];
+    knowledgeBases: KnowledgeBaseData[];
+  };
 }
 
 const Index = () => {
@@ -85,6 +86,10 @@ const Index = () => {
 
         if (functionError) {
           throw new Error(functionError.message);
+        }
+
+        if (!functionData?.data) {
+          throw new Error('Invalid response format');
         }
 
         setData(functionData as ApiResponse);
@@ -180,7 +185,7 @@ const Index = () => {
                     </TableRow>
                   ))
                 ) : (
-                  data?.calls.map((call) => (
+                  data?.data?.calls?.map((call) => (
                     <TableRow key={call.call_id} className="hover:bg-gray-50">
                       <TableCell>
                         <Badge className={`${getStatusColor(call.call_status)} text-white`}>

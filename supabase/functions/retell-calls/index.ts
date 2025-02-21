@@ -16,13 +16,13 @@ serve(async (req) => {
   }
 
   try {
-    const { action, agent_id } = await req.json();
-    const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY');
+    const { action, agent_id, limit } = await req.json();
+    const RETELL_API_KEY = 'key_bc69ed16c81fa347d618b4763cb7';
     
     if (!RETELL_API_KEY) {
       console.error('RETELL_API_KEY is not configured');
       return new Response(
-        JSON.stringify({ data: [], error: 'RETELL_API_KEY is not configured' }),
+        JSON.stringify({ data: { data: [] }, error: 'RETELL_API_KEY is not configured' }),
         { 
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -45,10 +45,9 @@ serve(async (req) => {
           const responseData = await response.json();
           console.log('Retell API response:', responseData);
 
-          // Return data in a consistent format
           return new Response(
             JSON.stringify({ 
-              data: Array.isArray(responseData) ? responseData : [],
+              data: { data: responseData },
               error: null 
             }),
             { 
@@ -59,7 +58,7 @@ serve(async (req) => {
         } catch (error) {
           console.error('Error fetching agents:', error);
           return new Response(
-            JSON.stringify({ data: [], error: 'Failed to fetch agents' }),
+            JSON.stringify({ data: { data: [] }, error: 'Failed to fetch agents' }),
             { 
               status: 200,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
