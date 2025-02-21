@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
-import { AlertCircle, ArrowUpDown, Phone, Database, DollarSign } from "lucide-react";
+import { AlertCircle, Phone, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -43,17 +43,17 @@ interface CallData {
   };
 }
 
+interface ApiResponse {
+  calls: CallData[];
+  knowledgeBases: KnowledgeBaseData[];
+}
+
 interface KnowledgeBaseData {
   id: string;
   name: string;
   description?: string;
   created_at: string;
   updated_at: string;
-}
-
-interface ApiResponse {
-  calls: CallData[];
-  knowledgeBases: KnowledgeBaseData[];
 }
 
 const Index = () => {
@@ -76,6 +76,7 @@ const Index = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('Fetching calls data...');
         const { data: functionData, error: functionError } = await supabase.functions.invoke(
           'retell-calls',
           {
@@ -87,7 +88,13 @@ const Index = () => {
           throw new Error(functionError.message);
         }
 
-        setData(functionData as ApiResponse);
+        console.log('Received data:', functionData);
+
+        // Initialize with empty arrays if data is missing
+        setData({
+          calls: functionData?.calls || [],
+          knowledgeBases: functionData?.knowledgeBases || []
+        });
         setLoading(false);
       } catch (err: any) {
         const errorMessage = err.message || "Failed to fetch data";
@@ -142,7 +149,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Calls Section */}
       <Card className="max-w-7xl mx-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -179,8 +185,8 @@ const Index = () => {
                       ))}
                     </TableRow>
                   ))
-                ) : (
-                  data?.calls.map((call) => (
+                ) : data?.calls && data.calls.length > 0 ? (
+                  data.calls.map((call) => (
                     <TableRow key={call.call_id} className="hover:bg-gray-50">
                       <TableCell>
                         <Badge className={`${getStatusColor(call.call_status)} text-white`}>
@@ -245,6 +251,12 @@ const Index = () => {
                       </TableCell>
                     </TableRow>
                   ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={11} className="text-center py-8">
+                      No calls found
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
