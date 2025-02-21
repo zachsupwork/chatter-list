@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, call_id, filter_criteria, limit = 50, from_number, to_number } = await req.json()
+    const { action, call_id, filter_criteria, limit = 50, from_number, to_number, agent_id } = await req.json()
 
     const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
     if (!RETELL_API_KEY) {
@@ -24,6 +24,10 @@ serve(async (req) => {
     let body: any = {}
 
     switch (action) {
+      case 'createWebCall':
+        url += 'create-web-call'
+        body = { agent_id }
+        break
       case 'createPhoneCall':
         url += 'create-phone-call'
         body = { from_number, to_number }
@@ -62,7 +66,7 @@ serve(async (req) => {
     console.log('Response data:', data)
 
     return new Response(
-      JSON.stringify(action === 'get' ? data : action === 'createPhoneCall' ? data : { calls: Array.isArray(data) ? data : [data] }),
+      JSON.stringify(data),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
