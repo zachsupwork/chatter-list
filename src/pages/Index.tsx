@@ -45,6 +45,19 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const formatDate = (date: string | number | undefined) => {
+    if (!date) return "-";
+    try {
+      // If it's a number (timestamp), multiply by 1 to ensure it's a number
+      // If it's a string (ISO date), convert to Date object
+      const dateObj = typeof date === 'number' ? new Date(date * 1) : new Date(date);
+      return formatDistanceToNow(dateObj, { addSuffix: true });
+    } catch (err) {
+      console.warn('Invalid date format:', date);
+      return "-";
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -162,8 +175,8 @@ const Index = () => {
                     <TableRow key={kb.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">{kb.name}</TableCell>
                       <TableCell>{kb.description || '-'}</TableCell>
-                      <TableCell>{formatDistanceToNow(new Date(kb.created_at), { addSuffix: true })}</TableCell>
-                      <TableCell>{formatDistanceToNow(new Date(kb.updated_at), { addSuffix: true })}</TableCell>
+                      <TableCell>{formatDate(kb.created_at)}</TableCell>
+                      <TableCell>{formatDate(kb.updated_at)}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -226,13 +239,7 @@ const Index = () => {
                       </TableCell>
                       <TableCell className="font-mono">{call.call_id}</TableCell>
                       <TableCell>{call.call_type}</TableCell>
-                      <TableCell>
-                        {call.start_timestamp
-                          ? formatDistanceToNow(call.start_timestamp, {
-                              addSuffix: true,
-                            })
-                          : "-"}
-                      </TableCell>
+                      <TableCell>{formatDate(call.start_timestamp)}</TableCell>
                       <TableCell>
                         {call.end_timestamp && call.start_timestamp
                           ? `${Math.round(
