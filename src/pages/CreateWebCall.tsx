@@ -24,7 +24,7 @@ const CreateWebCall = () => {
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const { data: responseData, error } = await supabase.functions.invoke(
+        const { data, error } = await supabase.functions.invoke(
           'retell-calls',
           {
             body: {
@@ -35,8 +35,7 @@ const CreateWebCall = () => {
 
         if (error) throw error;
 
-        // Initialize as empty array if no data
-        setAgents(responseData?.data || []);
+        setAgents(data || []);
       } catch (err: any) {
         console.error('Error fetching agents:', err);
         toast({
@@ -44,8 +43,6 @@ const CreateWebCall = () => {
           title: "Error fetching agents",
           description: err.message || "Failed to load agents",
         });
-        // Set empty array on error to prevent undefined
-        setAgents([]);
       } finally {
         setFetchingAgents(false);
       }
