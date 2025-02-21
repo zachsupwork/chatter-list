@@ -25,6 +25,8 @@ const Call = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const initializeCall = async () => {
       if (!id) return;
 
@@ -48,7 +50,11 @@ const Call = () => {
           throw new Error('No access token found for this call');
         }
 
-        await setupCall(functionData);
+        // Add a slight delay before setting up the call to ensure browser is ready
+        timeoutId = setTimeout(() => {
+          setupCall(functionData);
+        }, 1000);
+
       } catch (err: any) {
         console.error('Error initializing call:', err);
         setError(err.message || 'Failed to initialize call');
@@ -66,6 +72,9 @@ const Call = () => {
 
     // Cleanup on unmount
     return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (retellClientRef.current) {
         try {
           retellClientRef.current.stopCall();
@@ -84,7 +93,7 @@ const Call = () => {
       const client = new RetellWebClient();
       retellClientRef.current = client;
 
-      // Set up event listeners
+      // Set up event listeners before starting the call
       client.on("call_started", () => {
         console.log("Call started");
         setIsCallActive(true);
@@ -98,6 +107,7 @@ const Call = () => {
       client.on("call_ended", () => {
         console.log("Call ended");
         setIsCallActive(false);
+        setIsConnecting(false);
         toast({
           title: "Call ended",
           description: "The call has been disconnected",
@@ -119,13 +129,19 @@ const Call = () => {
         console.log("Call update:", update);
       });
 
-      // Initialize audio - wait for user interaction
-      await client.startCall({
-        accessToken: callData.access_token,
-        sampleRate: 24000,
-      });
+      // Start the call with proper error handling
+      try {
+        console.log('Starting call...');
+        await client.startCall({
+          accessToken: callData.access_token,
+          sampleRate: 24000,
+        });
+        console.log('Call started successfully');
+      } catch (error: any) {
+        console.error('Error starting call:', error);
+        throw new Error(`Failed to start call: ${error.message}`);
+      }
 
-      console.log('Call setup complete');
     } catch (err: any) {
       console.error('Error setting up call:', err);
       setError(err.message || 'Failed to set up call');
@@ -141,6 +157,7 @@ const Call = () => {
   const handleEndCall = async () => {
     try {
       if (retellClientRef.current) {
+        setIsConnecting(false);
         await retellClientRef.current.stopCall();
         setIsCallActive(false);
         toast({
