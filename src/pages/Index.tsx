@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -11,31 +12,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowUpDown, Phone, Database, AlertCircle, Headphones, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertCircle, ArrowUpDown, Phone, Database, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
 
 interface CallData {
-  call_id: string;
   call_type: "web_call" | "phone_call";
+  call_id: string;
+  agent_id: string;
   call_status: "registered" | "ongoing" | "ended" | "error";
   from_number?: string;
   to_number?: string;
   direction?: "inbound" | "outbound";
-  agent_id: string;
   start_timestamp?: number;
   end_timestamp?: number;
   disconnection_reason?: string;
-  transcript?: string;
-  recording_url?: string;
-  public_log_url?: string;
-  opt_out_sensitive_data_storage?: boolean;
   call_analysis?: {
-    call_summary?: string;
-    in_voicemail?: boolean;
     user_sentiment?: "Negative" | "Positive" | "Neutral" | "Unknown";
     call_successful?: boolean;
+  };
+  call_cost?: {
+    product_costs: {
+      product: string;
+      unitPrice: number;
+      cost: number;
+    }[];
+    total_duration_seconds: number;
+    combined_cost: number;
   };
 }
 
@@ -56,13 +60,12 @@ const Index = () => {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTranscript, setSelectedTranscript] = useState<string | null>(null);
   const { toast } = useToast();
 
   const formatDate = (date: string | number | undefined) => {
     if (!date) return "-";
     try {
-      const dateObj = typeof date === 'number' ? new Date(date * 1) : new Date(date);
+      const dateObj = typeof date === 'number' ? new Date(date) : new Date(date);
       return formatDistanceToNow(dateObj, { addSuffix: true });
     } catch (err) {
       console.warn('Invalid date format:', date);
@@ -73,26 +76,15 @@ const Index = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Fetching data from Retell API...');
-        const { data: functionData, error: functionError } = await supabase.functions.invoke('retell-calls');
-        
-        console.log('Response:', { functionData, functionError });
-        
+        const { data: functionData, error: functionError } = await supabase.functions.invoke(
+          'retell-calls',
+          {
+            body: { limit: 50 },
+          }
+        );
+
         if (functionError) {
           throw new Error(functionError.message);
-        }
-
-        if (!functionData) {
-          throw new Error('No data received from the API');
-        }
-
-        if ('error' in functionData) {
-          throw new Error(functionData.error);
-        }
-
-        if (!('calls' in functionData) || !('knowledgeBases' in functionData)) {
-          console.error('Invalid response structure:', functionData);
-          throw new Error('Invalid response format from API');
         }
 
         setData(functionData as ApiResponse);
@@ -150,63 +142,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Knowledge Base Section */}
-      <Card className="max-w-7xl mx-auto mb-8">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-semibold flex items-center gap-2">
-              <Database className="h-6 w-6" />
-              Knowledge Bases
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="relative overflow-x-auto rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Updated</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <TableRow key={i}>
-                      {Array.from({ length: 4 }).map((_, j) => (
-                        <TableCell key={j}>
-                          <Skeleton className="h-4 w-[100px]" />
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  data?.knowledgeBases.map((kb) => (
-                    <TableRow key={kb.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">{kb.name}</TableCell>
-                      <TableCell>{kb.description || '-'}</TableCell>
-                      <TableCell>{formatDate(kb.created_at)}</TableCell>
-                      <TableCell>{formatDate(kb.updated_at)}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Calls Section */}
       <Card className="max-w-7xl mx-auto">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-semibold flex items-center gap-2">
-              <Phone className="h-6 w-6" />
-              Call History
-            </CardTitle>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Phone className="h-6 w-6" />
+            Call History
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative overflow-x-auto rounded-lg">
@@ -214,16 +156,16 @@ const Index = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead>Call ID</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Direction</TableHead>
                   <TableHead>From</TableHead>
                   <TableHead>To</TableHead>
-                  <TableHead>Agent ID</TableHead>
                   <TableHead>Started</TableHead>
                   <TableHead>Duration</TableHead>
+                  <TableHead>Cost</TableHead>
                   <TableHead>Sentiment</TableHead>
                   <TableHead>Reason</TableHead>
-                  <TableHead>Media</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -239,92 +181,69 @@ const Index = () => {
                   ))
                 ) : (
                   data?.calls.map((call) => (
-                    <>
-                      <TableRow key={call.call_id} className="hover:bg-gray-50">
-                        <TableCell>
-                          <Badge className={`${getStatusColor(call.call_status)} text-white`}>
-                            {call.call_status}
+                    <TableRow key={call.call_id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <Badge className={`${getStatusColor(call.call_status)} text-white`}>
+                          {call.call_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link 
+                          to={`/calls/${call.call_id}`}
+                          className="font-mono text-blue-500 hover:text-blue-700 transition-colors"
+                        >
+                          {call.call_id}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {call.call_type.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {call.direction && (
+                          <Badge variant="secondary" className="capitalize">
+                            {call.direction}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Link 
-                            to={`/calls/${call.call_id}`}
-                            className="font-mono text-blue-500 hover:text-blue-700 transition-colors"
-                          >
-                            {call.call_id}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          {call.direction ? (
-                            <Badge variant="outline" className="capitalize">
-                              {call.direction}
-                            </Badge>
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell className="font-mono">{call.from_number || '-'}</TableCell>
-                        <TableCell className="font-mono">{call.to_number || '-'}</TableCell>
-                        <TableCell className="font-mono">
-                          <span className="text-xs">{call.agent_id}</span>
-                        </TableCell>
-                        <TableCell>{formatDate(call.start_timestamp)}</TableCell>
-                        <TableCell>
-                          {call.end_timestamp && call.start_timestamp
-                            ? `${Math.round((call.end_timestamp - call.start_timestamp) / 1000)}s`
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          {call.call_analysis?.user_sentiment ? (
-                            <Badge variant={
-                              call.call_analysis.user_sentiment === 'Positive' ? 'default' :
-                              call.call_analysis.user_sentiment === 'Negative' ? 'destructive' :
-                              'secondary'
-                            }>
-                              {call.call_analysis.user_sentiment}
-                            </Badge>
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell>
-                          <span className="capitalize">
-                            {call.disconnection_reason?.replace(/_/g, " ") || "-"}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            {call.recording_url && (
-                              <a
-                                href={call.recording_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-500 hover:text-blue-700 transition-colors"
-                                title="Listen to recording"
-                              >
-                                <Headphones className="h-4 w-4" />
-                              </a>
-                            )}
-                            {call.transcript && (
-                              <button
-                                onClick={() => setSelectedTranscript(
-                                  selectedTranscript === call.transcript ? null : call.transcript
-                                )}
-                                className="text-blue-500 hover:text-blue-700 transition-colors"
-                                title="View transcript"
-                              >
-                                <FileText className="h-4 w-4" />
-                              </button>
-                            )}
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {call.from_number || '-'}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {call.to_number || '-'}
+                      </TableCell>
+                      <TableCell>{formatDate(call.start_timestamp)}</TableCell>
+                      <TableCell>
+                        {call.call_cost?.total_duration_seconds
+                          ? `${call.call_cost.total_duration_seconds}s`
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {call.call_cost ? (
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-4 w-4 text-gray-500" />
+                            <span>${(call.call_cost.combined_cost / 100).toFixed(2)}</span>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                      {selectedTranscript === call.transcript && call.transcript && (
-                        <TableRow>
-                          <TableCell colSpan={11} className="bg-gray-50 p-4">
-                            <div className="whitespace-pre-wrap font-mono text-sm">
-                              {call.transcript}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </>
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {call.call_analysis?.user_sentiment ? (
+                          <Badge variant={
+                            call.call_analysis.user_sentiment === 'Positive' ? 'default' :
+                            call.call_analysis.user_sentiment === 'Negative' ? 'destructive' :
+                            'secondary'
+                          }>
+                            {call.call_analysis.user_sentiment}
+                          </Badge>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <span className="capitalize text-sm text-gray-600">
+                          {call.disconnection_reason?.replace(/_/g, " ") || "-"}
+                        </span>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
               </TableBody>
