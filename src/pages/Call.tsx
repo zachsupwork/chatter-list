@@ -5,7 +5,7 @@ import { RetellWebClient } from "retell-client-js-sdk";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Phone, PhoneOff } from "lucide-react";
+import { Loader2, Phone, PhoneOff, Mic } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -21,12 +21,12 @@ const Call = () => {
   const [error, setError] = useState<string | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [callData, setCallData] = useState<CallData | null>(null);
+  const [hasStartedCall, setHasStartedCall] = useState(false);
   const retellClientRef = useRef<RetellWebClient | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    
     const initializeCall = async () => {
       if (!id) return;
 
@@ -50,10 +50,7 @@ const Call = () => {
           throw new Error('No access token found for this call');
         }
 
-        // Add a slight delay before setting up the call to ensure browser is ready
-        timeoutId = setTimeout(() => {
-          setupCall(functionData);
-        }, 1000);
+        setCallData(functionData);
 
       } catch (err: any) {
         console.error('Error initializing call:', err);
@@ -72,9 +69,6 @@ const Call = () => {
 
     // Cleanup on unmount
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
       if (retellClientRef.current) {
         try {
           retellClientRef.current.stopCall();
@@ -85,7 +79,9 @@ const Call = () => {
     };
   }, [id]);
 
-  const setupCall = async (callData: CallData) => {
+  const setupCall = async () => {
+    if (!callData) return;
+
     try {
       setIsConnecting(true);
       console.log('Setting up call with access token');
@@ -98,6 +94,7 @@ const Call = () => {
         console.log("Call started");
         setIsCallActive(true);
         setIsConnecting(false);
+        setHasStartedCall(true);
         toast({
           title: "Call connected",
           description: "You are now connected to the agent",
@@ -131,6 +128,9 @@ const Call = () => {
 
       // Start the call with proper error handling
       try {
+        // Request microphone permission first
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        
         console.log('Starting call...');
         await client.startCall({
           accessToken: callData.access_token,
@@ -139,6 +139,9 @@ const Call = () => {
         console.log('Call started successfully');
       } catch (error: any) {
         console.error('Error starting call:', error);
+        if (error.name === 'NotAllowedError') {
+          throw new Error('Microphone permission denied. Please allow microphone access and try again.');
+        }
         throw new Error(`Failed to start call: ${error.message}`);
       }
 
@@ -236,10 +239,22 @@ const Call = () => {
                   "Call is active. You can speak with the agent now."
                 ) : isConnecting ? (
                   "Establishing connection..."
+                ) : !hasStartedCall ? (
+                  "Click the button below to start the call"
                 ) : (
                   "Call is not active"
                 )}
               </p>
+              
+              {!hasStartedCall && !isCallActive && !isConnecting && (
+                <Button 
+                  onClick={setupCall}
+                  className="w-full"
+                >
+                  <Mic className="mr-2 h-4 w-4" />
+                  Start Call
+                </Button>
+              )}
               
               {isCallActive && (
                 <Button 
