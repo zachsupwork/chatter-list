@@ -18,12 +18,25 @@ import { useToast } from "@/hooks/use-toast";
 
 interface CallData {
   call_id: string;
-  call_type: string;
-  call_status: string;
+  call_type: "web_call" | "phone_call";
+  call_status: "registered" | "ongoing" | "ended" | "error";
+  from_number?: string;
+  to_number?: string;
+  direction?: "inbound" | "outbound";
+  agent_id: string;
   start_timestamp?: number;
   end_timestamp?: number;
   disconnection_reason?: string;
   transcript?: string;
+  recording_url?: string;
+  public_log_url?: string;
+  opt_out_sensitive_data_storage?: boolean;
+  call_analysis?: {
+    call_summary?: string;
+    in_voicemail?: boolean;
+    user_sentiment?: "Negative" | "Positive" | "Neutral" | "Unknown";
+    call_successful?: boolean;
+  };
 }
 
 interface KnowledgeBaseData {
@@ -48,8 +61,6 @@ const Index = () => {
   const formatDate = (date: string | number | undefined) => {
     if (!date) return "-";
     try {
-      // If it's a number (timestamp), multiply by 1 to ensure it's a number
-      // If it's a string (ISO date), convert to Date object
       const dateObj = typeof date === 'number' ? new Date(date * 1) : new Date(date);
       return formatDistanceToNow(dateObj, { addSuffix: true });
     } catch (err) {
@@ -201,16 +212,15 @@ const Index = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">
-                    <div className="flex items-center gap-1">
-                      Status
-                      <ArrowUpDown className="h-4 w-4" />
-                    </div>
-                  </TableHead>
-                  <TableHead>Call ID</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Direction</TableHead>
+                  <TableHead>From</TableHead>
+                  <TableHead>To</TableHead>
+                  <TableHead>Agent ID</TableHead>
                   <TableHead>Started</TableHead>
                   <TableHead>Duration</TableHead>
+                  <TableHead>Sentiment</TableHead>
                   <TableHead>Reason</TableHead>
                 </TableRow>
               </TableHeader>
@@ -218,7 +228,7 @@ const Index = () => {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
+                      {Array.from({ length: 10 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-[100px]" />
                         </TableCell>
@@ -229,23 +239,39 @@ const Index = () => {
                   data?.calls.map((call) => (
                     <TableRow key={call.call_id} className="hover:bg-gray-50">
                       <TableCell>
-                        <Badge
-                          className={`${getStatusColor(
-                            call.call_status
-                          )} text-white`}
-                        >
+                        <Badge className={`${getStatusColor(call.call_status)} text-white`}>
                           {call.call_status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono">{call.call_id}</TableCell>
                       <TableCell>{call.call_type}</TableCell>
+                      <TableCell>
+                        {call.direction ? (
+                          <Badge variant="outline" className="capitalize">
+                            {call.direction}
+                          </Badge>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell className="font-mono">{call.from_number || '-'}</TableCell>
+                      <TableCell className="font-mono">{call.to_number || '-'}</TableCell>
+                      <TableCell className="font-mono">
+                        <span className="text-xs">{call.agent_id}</span>
+                      </TableCell>
                       <TableCell>{formatDate(call.start_timestamp)}</TableCell>
                       <TableCell>
                         {call.end_timestamp && call.start_timestamp
-                          ? `${Math.round(
-                              (call.end_timestamp - call.start_timestamp) / 1000
-                            )}s`
+                          ? `${Math.round((call.end_timestamp - call.start_timestamp) / 1000)}s`
                           : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {call.call_analysis?.user_sentiment ? (
+                          <Badge variant={
+                            call.call_analysis.user_sentiment === 'Positive' ? 'default' :
+                            call.call_analysis.user_sentiment === 'Negative' ? 'destructive' :
+                            'secondary'
+                          }>
+                            {call.call_analysis.user_sentiment}
+                          </Badge>
+                        ) : '-'}
                       </TableCell>
                       <TableCell>
                         <span className="capitalize">
