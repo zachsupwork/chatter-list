@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -15,6 +14,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ArrowUpDown, Phone, Database, AlertCircle, Headphones, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
 
 interface CallData {
   call_id: string;
@@ -246,7 +246,14 @@ const Index = () => {
                             {call.call_status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{call.call_type}</TableCell>
+                        <TableCell>
+                          <Link 
+                            to={`/calls/${call.call_id}`}
+                            className="font-mono text-blue-500 hover:text-blue-700 transition-colors"
+                          >
+                            {call.call_id}
+                          </Link>
+                        </TableCell>
                         <TableCell>
                           {call.direction ? (
                             <Badge variant="outline" className="capitalize">
