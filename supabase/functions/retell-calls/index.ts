@@ -21,7 +21,7 @@ serve(async (req) => {
 
     if (!RETELL_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'RETELL_API_KEY is not set' }),
+        JSON.stringify({ error: 'RETELL_API_KEY is not configured' }),
         { 
           status: 500,
           headers: {
@@ -32,19 +32,10 @@ serve(async (req) => {
       );
     }
 
-    const headers = {
-      'Authorization': `Bearer ${RETELL_API_KEY}`,
-      'Content-Type': 'application/json',
-      ...corsHeaders
-    };
-
-    let response;
-    let data;
-
     switch (action) {
       case 'listAgents': {
         console.log('Fetching agents...');
-        response = await fetch('https://api.retellai.com/v2/list-agents', {
+        const response = await fetch('https://api.retellai.com/v2/list-agents', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${RETELL_API_KEY}`,
@@ -52,12 +43,26 @@ serve(async (req) => {
           }
         });
 
-        data = await response.json();
+        const data = await response.json();
         
+        if (!response.ok) {
+          console.error('Error from Retell API:', data);
+          return new Response(
+            JSON.stringify({ error: data.message || 'Failed to fetch agents' }),
+            { 
+              status: response.status,
+              headers: {
+                'Content-Type': 'application/json',
+                ...corsHeaders
+              }
+            }
+          );
+        }
+
         return new Response(
           JSON.stringify(data),
           { 
-            status: response.status,
+            status: 200,
             headers: {
               'Content-Type': 'application/json',
               ...corsHeaders
@@ -81,7 +86,7 @@ serve(async (req) => {
         }
 
         console.log('Creating web call for agent:', agent_id);
-        response = await fetch('https://api.retellai.com/v2/create-web-call', {
+        const response = await fetch('https://api.retellai.com/v2/create-web-call', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${RETELL_API_KEY}`,
@@ -90,12 +95,26 @@ serve(async (req) => {
           body: JSON.stringify({ agent_id })
         });
 
-        data = await response.json();
+        const data = await response.json();
         
+        if (!response.ok) {
+          console.error('Error from Retell API:', data);
+          return new Response(
+            JSON.stringify({ error: data.message || 'Failed to create web call' }),
+            { 
+              status: response.status,
+              headers: {
+                'Content-Type': 'application/json',
+                ...corsHeaders
+              }
+            }
+          );
+        }
+
         return new Response(
           JSON.stringify(data),
           { 
-            status: response.status,
+            status: 201,
             headers: {
               'Content-Type': 'application/json',
               ...corsHeaders
@@ -119,7 +138,7 @@ serve(async (req) => {
         }
 
         console.log('Fetching call details for:', call_id);
-        response = await fetch(`https://api.retellai.com/v2/get-call/${call_id}`, {
+        const response = await fetch(`https://api.retellai.com/v2/get-call/${call_id}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${RETELL_API_KEY}`,
@@ -127,12 +146,26 @@ serve(async (req) => {
           }
         });
 
-        data = await response.json();
+        const data = await response.json();
         
+        if (!response.ok) {
+          console.error('Error from Retell API:', data);
+          return new Response(
+            JSON.stringify({ error: data.message || 'Failed to fetch call details' }),
+            { 
+              status: response.status,
+              headers: {
+                'Content-Type': 'application/json',
+                ...corsHeaders
+              }
+            }
+          );
+        }
+
         return new Response(
           JSON.stringify(data),
           { 
-            status: response.status,
+            status: 200,
             headers: {
               'Content-Type': 'application/json',
               ...corsHeaders
