@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, agent_id, call_id } = await req.json();
+    const { action, agent_id, call_id, limit = 50 } = await req.json();
     const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY');
 
     if (!RETELL_API_KEY) {
@@ -33,6 +33,45 @@ serve(async (req) => {
     }
 
     switch (action) {
+      case 'listCalls': {
+        console.log('Fetching calls with limit:', limit);
+        const response = await fetch('https://api.retellai.com/v2/list-calls', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RETELL_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ limit })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          console.error('Error from Retell API:', data);
+          return new Response(
+            JSON.stringify({ error: data.message || 'Failed to fetch calls' }),
+            { 
+              status: response.status,
+              headers: {
+                'Content-Type': 'application/json',
+                ...corsHeaders
+              }
+            }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ calls: data }),
+          { 
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        );
+      }
+
       case 'listAgents': {
         console.log('Fetching agents...');
         const response = await fetch('https://api.retellai.com/v2/list-agents', {
