@@ -22,9 +22,9 @@ serve(async (req) => {
     if (!RETELL_API_KEY) {
       console.error('RETELL_API_KEY is not configured');
       return new Response(
-        JSON.stringify({ error: 'RETELL_API_KEY is not configured' }),
+        JSON.stringify({ data: [], error: 'RETELL_API_KEY is not configured' }),
         { 
-          status: 200, // Changed to 200 to avoid non-2xx error
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -45,9 +45,12 @@ serve(async (req) => {
           const responseData = await response.json();
           console.log('Retell API response:', responseData);
 
-          // Always return 200 with data, even if empty
+          // Return data in a consistent format
           return new Response(
-            JSON.stringify(Array.isArray(responseData) ? responseData : []),
+            JSON.stringify({ 
+              data: Array.isArray(responseData) ? responseData : [],
+              error: null 
+            }),
             { 
               status: 200,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -56,7 +59,7 @@ serve(async (req) => {
         } catch (error) {
           console.error('Error fetching agents:', error);
           return new Response(
-            JSON.stringify([]), // Return empty array instead of error
+            JSON.stringify({ data: [], error: 'Failed to fetch agents' }),
             { 
               status: 200,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -68,9 +71,9 @@ serve(async (req) => {
       case 'createWebCall': {
         if (!agent_id) {
           return new Response(
-            JSON.stringify({ error: 'agent_id is required' }),
+            JSON.stringify({ data: null, error: 'agent_id is required' }),
             { 
-              status: 200, // Changed to 200 to avoid non-2xx error
+              status: 200,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           );
@@ -87,9 +90,9 @@ serve(async (req) => {
             body: JSON.stringify({ agent_id })
           });
 
-          const data = await response.json();
+          const responseData = await response.json();
           return new Response(
-            JSON.stringify(data),
+            JSON.stringify({ data: responseData, error: null }),
             { 
               status: 200,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -98,9 +101,9 @@ serve(async (req) => {
         } catch (error) {
           console.error('Error creating web call:', error);
           return new Response(
-            JSON.stringify({ error: 'Failed to create web call' }),
+            JSON.stringify({ data: null, error: 'Failed to create web call' }),
             { 
-              status: 200, // Changed to 200 to avoid non-2xx error
+              status: 200,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           );
@@ -109,9 +112,9 @@ serve(async (req) => {
 
       default:
         return new Response(
-          JSON.stringify({ error: 'Invalid action' }),
+          JSON.stringify({ data: null, error: 'Invalid action' }),
           { 
-            status: 200, // Changed to 200 to avoid non-2xx error
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
@@ -119,9 +122,9 @@ serve(async (req) => {
   } catch (err) {
     console.error('General error:', err);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ data: null, error: 'Internal server error' }),
       { 
-        status: 200, // Changed to 200 to avoid non-2xx error
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
