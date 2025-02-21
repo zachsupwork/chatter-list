@@ -79,17 +79,31 @@ const Call = () => {
     };
   }, [id]);
 
-  const setupCall = async () => {
+  const setupMicrophoneAndCall = async () => {
     if (!callData) return;
 
     try {
       setIsConnecting(true);
-      console.log('Setting up call with access token');
       
+      // First request microphone permission
+      try {
+        console.log('Requesting microphone permission...');
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('Microphone permission granted');
+      } catch (error: any) {
+        console.error('Microphone permission error:', error);
+        if (error.name === 'NotAllowedError') {
+          throw new Error('Microphone permission denied. Please allow microphone access and try again.');
+        }
+        throw error;
+      }
+
+      // Then set up the call client
+      console.log('Setting up call client...');
       const client = new RetellWebClient();
       retellClientRef.current = client;
 
-      // Set up event listeners before starting the call
+      // Set up event listeners
       client.on("call_started", () => {
         console.log("Call started");
         setIsCallActive(true);
@@ -126,12 +140,9 @@ const Call = () => {
         console.log("Call update:", update);
       });
 
-      // Start the call with proper error handling
+      // Finally, start the call
       try {
-        // Request microphone permission first
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        console.log('Starting call...');
+        console.log('Starting call with access token...');
         await client.startCall({
           accessToken: callData.access_token,
           sampleRate: 24000,
@@ -139,14 +150,11 @@ const Call = () => {
         console.log('Call started successfully');
       } catch (error: any) {
         console.error('Error starting call:', error);
-        if (error.name === 'NotAllowedError') {
-          throw new Error('Microphone permission denied. Please allow microphone access and try again.');
-        }
         throw new Error(`Failed to start call: ${error.message}`);
       }
 
     } catch (err: any) {
-      console.error('Error setting up call:', err);
+      console.error('Error in setup process:', err);
       setError(err.message || 'Failed to set up call');
       setIsConnecting(false);
       toast({
@@ -248,7 +256,7 @@ const Call = () => {
               
               {!hasStartedCall && !isCallActive && !isConnecting && (
                 <Button 
-                  onClick={setupCall}
+                  onClick={setupMicrophoneAndCall}
                   className="w-full"
                 >
                   <Mic className="mr-2 h-4 w-4" />
