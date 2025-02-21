@@ -34,14 +34,8 @@ const CreateWebCall = () => {
         );
 
         if (error) throw error;
-        
-        // Access the data property from the response
-        const agentsData = data?.data || [];
-        setAgents(agentsData);
-        
-        if (data?.error) {
-          throw new Error(data.error);
-        }
+
+        setAgents(data || []);
       } catch (err: any) {
         console.error('Error fetching agents:', err);
         toast({
@@ -49,7 +43,6 @@ const CreateWebCall = () => {
           title: "Error fetching agents",
           description: err.message || "Failed to load agents",
         });
-        setAgents([]);
       } finally {
         setFetchingAgents(false);
       }
@@ -63,7 +56,7 @@ const CreateWebCall = () => {
     setLoading(true);
 
     try {
-      const { data: response, error } = await supabase.functions.invoke(
+      const { data, error } = await supabase.functions.invoke(
         'retell-calls',
         {
           body: {
@@ -74,15 +67,6 @@ const CreateWebCall = () => {
       );
 
       if (error) throw error;
-      
-      if (response?.error) {
-        throw new Error(response.error);
-      }
-
-      const data = response?.data;
-      if (!data?.call_id) {
-        throw new Error('No call ID received');
-      }
 
       toast({
         title: "Web call created successfully",

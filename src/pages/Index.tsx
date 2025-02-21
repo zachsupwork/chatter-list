@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
-import { AlertCircle, ArrowUpDown, Phone, Database, DollarSign } from "lucide-react";
+import { AlertCircle, Phone, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -42,23 +43,8 @@ interface CallData {
   };
 }
 
-interface KnowledgeBaseData {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ApiResponse {
-  data: {
-    calls: CallData[];
-    knowledgeBases: KnowledgeBaseData[];
-  };
-}
-
 const Index = () => {
-  const [data, setData] = useState<ApiResponse | null>(null);
+  const [calls, setCalls] = useState<CallData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -77,10 +63,14 @@ const Index = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('Fetching calls data...');
         const { data: functionData, error: functionError } = await supabase.functions.invoke(
           'retell-calls',
           {
-            body: { limit: 50 },
+            body: { 
+              action: 'listCalls',
+              limit: 50 
+            },
           }
         );
 
@@ -88,23 +78,25 @@ const Index = () => {
           throw new Error(functionError.message);
         }
 
-        if (!functionData?.data) {
-          throw new Error('Invalid response format');
-        }
+        console.log('Received function data:', functionData);
 
-        setData(functionData as ApiResponse);
-        setLoading(false);
+        // Ensure we have an array of calls
+        const callsArray = Array.isArray(functionData?.calls) ? functionData.calls : [];
+        console.log('Processed calls array:', callsArray);
+        
+        setCalls(callsArray);
       } catch (err: any) {
         const errorMessage = err.message || "Failed to fetch data";
         console.error("Error fetching data:", err);
         setError(errorMessage);
-        setLoading(false);
         
         toast({
           variant: "destructive",
           title: "Error fetching data",
           description: errorMessage,
         });
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -147,7 +139,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Calls Section */}
       <Card className="max-w-7xl mx-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -175,6 +166,7 @@ const Index = () => {
               </TableHeader>
               <TableBody>
                 {loading ? (
+                  // Show loading skeleton rows
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       {Array.from({ length: 11 }).map((_, j) => (
@@ -184,8 +176,9 @@ const Index = () => {
                       ))}
                     </TableRow>
                   ))
-                ) : (
-                  data?.data?.calls?.map((call) => (
+                ) : calls && calls.length > 0 ? (
+                  // Show calls data
+                  calls.map((call) => (
                     <TableRow key={call.call_id} className="hover:bg-gray-50">
                       <TableCell>
                         <Badge className={`${getStatusColor(call.call_status)} text-white`}>
@@ -250,6 +243,13 @@ const Index = () => {
                       </TableCell>
                     </TableRow>
                   ))
+                ) : (
+                  // Show empty state
+                  <TableRow>
+                    <TableCell colSpan={11} className="text-center py-8">
+                      No calls found
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
