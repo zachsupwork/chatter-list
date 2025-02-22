@@ -8,6 +8,8 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
+const RETELL_API_BASE = 'https://api.retellai.com';
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -26,78 +28,65 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    // Base Retell API URL for v2 endpoints
-    const RETELL_API_BASE = 'https://api.retellai.com/v2';
-
-    // Get the action and params from the request body
+    // Get the request body
     const { action, ...params } = await req.json();
     console.log(`Processing ${action} request with params:`, params);
 
     let response;
+    let endpoint;
+    let method;
+    let body;
 
     switch (action) {
-      case 'listCalls': {
-        const { filter_criteria, sort_order = 'descending', limit = 50, pagination_key } = params;
-        console.log('Fetching calls with params:', { filter_criteria, sort_order, limit, pagination_key });
-        
-        // Build the URL with query parameters
-        let url = new URL(`${RETELL_API_BASE}/list-calls`);
-        
-        if (limit) url.searchParams.append('limit', limit.toString());
-        if (sort_order) url.searchParams.append('sort_order', sort_order);
-        if (pagination_key) url.searchParams.append('pagination_key', pagination_key);
-        
-        response = await fetch(url.toString(), {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            filter_criteria: filter_criteria || {},
-          }),
-        });
-        break;
-      }
+      case 'getApiKey':
+        return new Response(
+          JSON.stringify({ RETELL_API_KEY }),
+          { headers: corsHeaders }
+        );
 
-      case 'getCall': {
-        const { call_id } = params;
-        if (!call_id) {
-          throw new Error('Missing required parameter: call_id');
-        }
+      case 'listCalls':
+        endpoint = '/list-calls';
+        method = 'POST';
+        body = {
+          filter_criteria: params.filter_criteria || {},
+          sort_order: params.sort_order || 'descending',
+          limit: params.limit || 50,
+          pagination_key: params.pagination_key,
+        };
+        break;
+
+      case 'getCall':
+        endpoint = `/get-call/${params.call_id}`;
+        method = 'GET';
+        break;
+
+      case 'listPhoneNumbers':
+        endpoint = '/list-phone-numbers';
+        method = 'GET';
+        break;
+
+      case 'getPhoneNumber':
+        endpoint = `/get-phone-number/${params.phone_number}`;
+        method = 'GET';
+        break;
         
-        console.log('Fetching call details for ID:', call_id);
-        response = await fetch(`${RETELL_API_BASE}/get-call/${call_id}`, {
-          method: 'GET',
-          headers,
-        });
-        break;
-      }
-
-      case 'listPhoneNumbers': {
-        console.log('Fetching phone numbers...');
-        response = await fetch(`${RETELL_API_BASE}/list-phone-numbers`, {
-          method: 'GET',
-          headers,
-        });
-        break;
-      }
-
-      case 'getPhoneNumber': {
-        const { phone_number } = params;
-        if (!phone_number) {
-          throw new Error('Missing required parameter: phone_number');
-        }
-
-        console.log('Fetching phone number:', phone_number);
-        response = await fetch(`${RETELL_API_BASE}/get-phone-number/${phone_number}`, {
-          method: 'GET',
-          headers,
-        });
-        break;
-      }
-      
       default:
         throw new Error(`Unsupported action: ${action}`);
     }
 
+    console.log(`Making ${method} request to ${RETELL_API_BASE}${endpoint}`);
+    
+    const fetchOptions: RequestInit = {
+      method,
+      headers,
+    };
+
+    if (method === 'POST' && body) {
+      fetchOptions.body = JSON.stringify(body);
+    }
+
+    response = await fetch(`${RETELL_API_BASE}${endpoint}`, fetchOptions);
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Retell API error (${response.status}):`, errorText);
@@ -105,21 +94,21 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    return new Response(JSON.stringify(data), { 
-      headers: corsHeaders,
-      status: response.status,
-    });
+    return new Response(
+      JSON.stringify(data),
+      { headers: corsHeaders }
+    );
 
   } catch (error) {
     console.error('Error processing request:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message || 'Internal server error',
         details: error.stack,
       }),
-      { 
-        status: 500, 
-        headers: corsHeaders 
+      {
+        status: 500,
+        headers: corsHeaders
       }
     );
   }
