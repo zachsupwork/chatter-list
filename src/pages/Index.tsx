@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -68,20 +67,25 @@ const Index = () => {
           'retell-calls',
           {
             body: { 
-              action: 'listCalls',
-              limit: 50 
-            },
+              action: 'listCalls'
+            }
           }
         );
 
         if (functionError) {
-          throw new Error(functionError.message);
+          throw functionError;
+        }
+
+        if (!functionData) {
+          throw new Error('No data received from the API');
         }
 
         console.log('Received function data:', functionData);
 
         // Ensure we have an array of calls
-        const callsArray = Array.isArray(functionData?.calls) ? functionData.calls : [];
+        const callsArray = Array.isArray(functionData) ? functionData : 
+                         Array.isArray(functionData.calls) ? functionData.calls : [];
+        
         console.log('Processed calls array:', callsArray);
         
         setCalls(callsArray);
@@ -101,7 +105,7 @@ const Index = () => {
     };
 
     fetchData();
-  }, []);
+  }, [toast]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -166,7 +170,6 @@ const Index = () => {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  // Show loading skeleton rows
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       {Array.from({ length: 11 }).map((_, j) => (
@@ -177,7 +180,6 @@ const Index = () => {
                     </TableRow>
                   ))
                 ) : calls && calls.length > 0 ? (
-                  // Show calls data
                   calls.map((call) => (
                     <TableRow key={call.call_id} className="hover:bg-gray-50">
                       <TableCell>
@@ -244,7 +246,6 @@ const Index = () => {
                     </TableRow>
                   ))
                 ) : (
-                  // Show empty state
                   <TableRow>
                     <TableCell colSpan={11} className="text-center py-8">
                       No calls found
