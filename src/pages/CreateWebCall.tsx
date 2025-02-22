@@ -23,6 +23,7 @@ const CreateWebCall = () => {
   const [showCodeSnippet, setShowCodeSnippet] = useState(false);
   const [copied, setCopied] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isCallActive, setIsCallActive] = useState(false);
   const widgetContainerRef = useRef<HTMLDivElement>(null);
   const retellClientRef = useRef<RetellWebClient | null>(null);
   const { toast } = useToast();
@@ -79,72 +80,71 @@ const CreateWebCall = () => {
     }
   }, [agentId, toast]);
 
-  useEffect(() => {
-    const initializeCall = async () => {
-      if (!accessToken) return;
+  const initializeCall = async () => {
+    if (!accessToken) return;
 
-      try {
-        console.log('Initializing Retell Web Client...');
-        
-        // Create a new instance of RetellWebClient
-        if (!retellClientRef.current) {
-          retellClientRef.current = new RetellWebClient();
-        }
+    try {
+      console.log('Initializing Retell Web Client...');
+      
+      // Create a new instance of RetellWebClient
+      if (!retellClientRef.current) {
+        retellClientRef.current = new RetellWebClient();
+      }
 
-        // Set up event listeners
-        retellClientRef.current.on("call_started", () => {
-          console.log("Call started");
-          toast({
-            title: "Call started",
-            description: "You are now connected with the agent",
-          });
+      // Set up event listeners
+      retellClientRef.current.on("call_started", () => {
+        console.log("Call started");
+        setIsCallActive(true);
+        toast({
+          title: "Call started",
+          description: "You are now connected with the agent",
         });
+      });
 
-        retellClientRef.current.on("call_ended", () => {
-          console.log("Call ended");
-          toast({
-            title: "Call ended",
-            description: "The call has been disconnected",
-          });
+      retellClientRef.current.on("call_ended", () => {
+        console.log("Call ended");
+        setIsCallActive(false);
+        toast({
+          title: "Call ended",
+          description: "The call has been disconnected",
         });
+      });
 
-        retellClientRef.current.on("error", (error) => {
-          console.error("Call error:", error);
-          toast({
-            variant: "destructive",
-            title: "Call error",
-            description: error.message || "An error occurred during the call",
-          });
-          retellClientRef.current?.stopCall();
-        });
-
-        // Start the call with the access token
-        await retellClientRef.current.startCall({
-          accessToken: accessToken,
-          captureDeviceId: "default",
-        });
-
-        console.log('Call initialized successfully');
-      } catch (err) {
-        console.error('Error initializing call:', err);
+      retellClientRef.current.on("error", (error) => {
+        console.error("Call error:", error);
+        setIsCallActive(false);
         toast({
           variant: "destructive",
-          title: "Error initializing call",
-          description: "Failed to start the call. Please try again.",
+          title: "Call error",
+          description: error.message || "An error occurred during the call",
         });
-      }
-    };
+        retellClientRef.current?.stopCall();
+      });
 
-    initializeCall();
+      // Start the call with the access token
+      await retellClientRef.current.startCall({
+        accessToken: accessToken,
+        captureDeviceId: "default",
+      });
 
-    // Cleanup function
-    return () => {
-      if (retellClientRef.current) {
-        retellClientRef.current.stopCall();
-        retellClientRef.current = null;
-      }
-    };
-  }, [accessToken, toast]);
+      console.log('Call initialized successfully');
+    } catch (err) {
+      console.error('Error initializing call:', err);
+      setIsCallActive(false);
+      toast({
+        variant: "destructive",
+        title: "Error initializing call",
+        description: "Failed to start the call. Please try again.",
+      });
+    }
+  };
+
+  const handleEndCall = () => {
+    if (retellClientRef.current) {
+      retellClientRef.current.stopCall();
+      setIsCallActive(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,7 +228,7 @@ const widget = Retell.widget.createCallWidget({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Video className="h-6 w-6" />
-              Create New Web Call
+              {agentId ? "Start Web Call" : "Create New Web Call"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -252,7 +252,10 @@ const widget = Retell.widget.createCallWidget({
                 ) : (
                   <Select
                     value={selectedAgentId}
-                    onValueChange={setSelectedAgentId}
+                    onValueChange={(value) => {
+                      setSelectedAgentId(value);
+                      navigate(`/create-web-call/${value}`);
+                    }}
                     required
                   >
                     <SelectTrigger className="w-full">
@@ -295,56 +298,74 @@ const widget = Retell.widget.createCallWidget({
         </Card>
 
         {accessToken && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="h-6 w-6" />
-                Test Call Widget
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="w-full h-[400px] bg-white rounded-lg border border-gray-200 relative overflow-hidden">
-                <div 
-                  id="retell-call-widget" 
-                  ref={widgetContainerRef}
-                  className="w-full h-full absolute inset-0"
-                ></div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {showCodeSnippet && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Code className="h-6 w-6" />
-                Code Snippet
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="absolute right-2 top-2"
-                  onClick={handleCopyCode}
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4" />
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="h-6 w-6" />
+                  Connect to Agent
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-gray-500">
+                  Click the button below to start the call with the agent. Make sure your microphone is enabled.
+                </p>
+                <div className="flex gap-4">
+                  {!isCallActive ? (
+                    <Button
+                      onClick={initializeCall}
+                      className="w-full"
+                      variant="default"
+                    >
+                      <Video className="mr-2 h-4 w-4" />
+                      Start Call
+                    </Button>
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <Button
+                      onClick={handleEndCall}
+                      className="w-full"
+                      variant="destructive"
+                    >
+                      End Call
+                    </Button>
                   )}
-                </Button>
-                <pre className="text-sm">
-                  <code>{embedCodeSnippet}</code>
-                </pre>
-              </div>
-              <p className="mt-4 text-sm text-gray-500">
-                Use this code snippet to integrate the web call widget into your website.
-              </p>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
+
+            {showCodeSnippet && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code className="h-6 w-6" />
+                    Code Snippet
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute right-2 top-2"
+                      onClick={handleCopyCode}
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <pre className="text-sm">
+                      <code>{embedCodeSnippet}</code>
+                    </pre>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-500">
+                    Use this code snippet to integrate the web call widget into your website.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </div>
