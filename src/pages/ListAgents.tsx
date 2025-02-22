@@ -27,7 +27,8 @@ export default function ListAgents() {
 
   const fetchAgents = async () => {
     try {
-      const { data: { RETELL_API_KEY } } = await supabase.functions.invoke(
+      console.log("Fetching API key from Supabase...");
+      const { data: { RETELL_API_KEY }, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
         {
           body: {
@@ -36,6 +37,12 @@ export default function ListAgents() {
         }
       );
 
+      if (apiKeyError) {
+        console.error("Error fetching API key:", apiKeyError);
+        throw new Error("Failed to fetch API key");
+      }
+
+      console.log("API key retrieved successfully, making request to Retell API...");
       const response = await fetch("https://api.retellai.com/list-agents", {
         headers: {
           "Authorization": `Bearer ${RETELL_API_KEY}`
@@ -43,12 +50,16 @@ export default function ListAgents() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch agents");
+        const errorText = await response.text();
+        console.error("Retell API error:", response.status, errorText);
+        throw new Error(`Failed to fetch agents: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
+      console.log("Agents fetched successfully:", data);
       setAgents(data);
     } catch (error: any) {
+      console.error("Error in fetchAgents:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -82,23 +93,31 @@ export default function ListAgents() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {agents.map((agent) => (
-                  <TableRow key={agent.agent_id}>
-                    <TableCell>{agent.agent_id}</TableCell>
-                    <TableCell>{agent.agent_name || "N/A"}</TableCell>
-                    <TableCell>{agent.voice_id}</TableCell>
-                    <TableCell>{agent.language}</TableCell>
-                    <TableCell>{agent.voice_model || "Default"}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        onClick={() => navigate(`/agents/${agent.agent_id}`)}
-                      >
-                        View Details
-                      </Button>
+                {agents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-4">
+                      No agents found
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  agents.map((agent) => (
+                    <TableRow key={agent.agent_id}>
+                      <TableCell>{agent.agent_id}</TableCell>
+                      <TableCell>{agent.agent_name || "N/A"}</TableCell>
+                      <TableCell>{agent.voice_id}</TableCell>
+                      <TableCell>{agent.language}</TableCell>
+                      <TableCell>{agent.voice_model || "Default"}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/agents/${agent.agent_id}`)}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           )}
@@ -107,3 +126,4 @@ export default function ListAgents() {
     </div>
   );
 }
+

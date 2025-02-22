@@ -73,7 +73,8 @@ export default function AgentDetails() {
 
   const fetchAgentDetails = async () => {
     try {
-      const { data: { RETELL_API_KEY } } = await supabase.functions.invoke(
+      console.log("Fetching API key from Supabase...");
+      const { data: { RETELL_API_KEY }, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
         {
           body: {
@@ -82,6 +83,12 @@ export default function AgentDetails() {
         }
       );
 
+      if (apiKeyError) {
+        console.error("Error fetching API key:", apiKeyError);
+        throw new Error("Failed to fetch API key");
+      }
+
+      console.log("API key retrieved successfully, making request to Retell API...");
       const response = await fetch(`https://api.retellai.com/get-agent/${agentId}`, {
         headers: {
           "Authorization": `Bearer ${RETELL_API_KEY}`
@@ -89,12 +96,16 @@ export default function AgentDetails() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch agent details");
+        const errorText = await response.text();
+        console.error("Retell API error:", response.status, errorText);
+        throw new Error(`Failed to fetch agent details: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
+      console.log("Agent details fetched successfully:", data);
       setAgent(data);
     } catch (error: any) {
+      console.error("Error in fetchAgentDetails:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -146,3 +157,4 @@ export default function AgentDetails() {
     </div>
   );
 }
+
