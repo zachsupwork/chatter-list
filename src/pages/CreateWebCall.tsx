@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +24,7 @@ const CreateWebCall = () => {
   const [copied, setCopied] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const widgetContainerRef = useRef<HTMLDivElement>(null);
   const retellClientRef = useRef<RetellWebClient | null>(null);
   const { toast } = useToast();
@@ -80,20 +82,27 @@ const CreateWebCall = () => {
   }, [agentId, toast]);
 
   const initializeCall = async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No access token available. Please create a web call first.",
+      });
+      return;
+    }
 
     try {
-      console.log('Initializing Retell Web Client...');
+      setIsInitializing(true);
+      console.log('Initializing Retell Web Client with access token:', accessToken);
       
       // Create a new instance of RetellWebClient
-      if (!retellClientRef.current) {
-        retellClientRef.current = new RetellWebClient();
-      }
+      retellClientRef.current = new RetellWebClient();
 
       // Set up event listeners
       retellClientRef.current.on("call_started", () => {
-        console.log("Call started");
+        console.log("Call started successfully");
         setIsCallActive(true);
+        setIsInitializing(false);
         toast({
           title: "Call started",
           description: "You are now connected with the agent",
@@ -103,6 +112,7 @@ const CreateWebCall = () => {
       retellClientRef.current.on("call_ended", () => {
         console.log("Call ended");
         setIsCallActive(false);
+        setIsInitializing(false);
         toast({
           title: "Call ended",
           description: "The call has been disconnected",
@@ -112,12 +122,15 @@ const CreateWebCall = () => {
       retellClientRef.current.on("error", (error) => {
         console.error("Call error:", error);
         setIsCallActive(false);
+        setIsInitializing(false);
         toast({
           variant: "destructive",
           title: "Call error",
           description: error.message || "An error occurred during the call",
         });
-        retellClientRef.current?.stopCall();
+        if (retellClientRef.current) {
+          retellClientRef.current.stopCall();
+        }
       });
 
       // Start the call with the access token
@@ -126,22 +139,25 @@ const CreateWebCall = () => {
         captureDeviceId: "default",
       });
 
-      console.log('Call initialized successfully');
-    } catch (err) {
+      console.log('Call initialization request sent');
+    } catch (err: any) {
       console.error('Error initializing call:', err);
       setIsCallActive(false);
+      setIsInitializing(false);
       toast({
         variant: "destructive",
         title: "Error initializing call",
-        description: "Failed to start the call. Please try again.",
+        description: err.message || "Failed to start the call. Please try again.",
       });
     }
   };
 
   const handleEndCall = () => {
     if (retellClientRef.current) {
+      console.log('Ending call...');
       retellClientRef.current.stopCall();
       setIsCallActive(false);
+      setIsInitializing(false);
     }
   };
 
@@ -168,6 +184,7 @@ const CreateWebCall = () => {
         throw new Error("Invalid response from server");
       }
 
+      console.log('Web call created successfully:', data);
       setAccessToken(data.access_token);
       setShowCodeSnippet(true);
 
@@ -413,11 +430,21 @@ const CreateWebCall = () => {
                   {!isCallActive ? (
                     <Button
                       onClick={initializeCall}
+                      disabled={isInitializing}
                       className="w-full"
                       variant="default"
                     >
-                      <Video className="mr-2 h-4 w-4" />
-                      Start Call
+                      {isInitializing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Video className="mr-2 h-4 w-4" />
+                          Start Call
+                        </>
+                      )}
                     </Button>
                   ) : (
                     <Button
