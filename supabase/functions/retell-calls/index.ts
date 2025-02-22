@@ -1,80 +1,90 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { Retell } from 'npm:retell-client-js-sdk@2.0.5'
-import { corsHeaders } from '../_shared/cors.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { corsHeaders } from '../_shared/cors.ts';
+import { Retell } from "npm:retell-sdk@4.19.0";
 
-const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
+const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY');
 
 if (!RETELL_API_KEY) {
-  throw new Error('RETELL_API_KEY is required')
+  console.error('RETELL_API_KEY is not set');
+  throw new Error('RETELL_API_KEY is required');
 }
 
 const client = new Retell({
   apiKey: RETELL_API_KEY,
-})
+});
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    console.log('Handling CORS preflight request');
+    return new Response(null, {
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      },
+    });
   }
 
   try {
-    const { action, ...params } = await req.json()
-
-    if (!action) {
-      throw new Error('Missing action parameter')
+    if (req.method !== 'POST') {
+      throw new Error(`HTTP method ${req.method} is not supported.`);
     }
 
-    console.log(`Processing action: ${action}`)
+    console.log('Processing request...');
+    const { action, ...params } = await req.json();
+    console.log('Received action:', action, 'with params:', params);
 
-    switch (action) {
-      case 'listPhoneNumbers': {
-        console.log('Fetching phone numbers from Retell API')
-        const phoneNumbersResponse = await client.phoneNumber.list()
-        console.log('Phone numbers fetched:', phoneNumbersResponse)
-        return new Response(JSON.stringify(phoneNumbersResponse), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        })
-      }
-
-      case 'validatePhoneNumber': {
-        const { phone_number } = params
-        console.log('Validating phone number:', phone_number)
-        const validationResponse = await client.phoneNumber.validate(phone_number)
-        console.log('Phone number validation result:', validationResponse)
-        return new Response(JSON.stringify(validationResponse), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        })
-      }
-
-      case 'createPhoneCall': {
-        const { from_number, to_number } = params
-        console.log('Creating phone call from:', from_number, 'to:', to_number)
-        const createCallResponse = await client.phoneCall.create({
-          from_number,
-          to_number,
-        })
-        console.log('Phone call created successfully:', createCallResponse)
-        return new Response(JSON.stringify(createCallResponse), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        })
-      }
-
-      default:
-        throw new Error(`Unsupported action: ${action}`)
+    if (action === 'listPhoneNumbers') {
+      console.log('Fetching phone numbers from Retell API...');
+      const phoneNumbers = await client.phoneNumber.list();
+      console.log('Successfully fetched phone numbers:', phoneNumbers);
+      
+      return new Response(JSON.stringify(phoneNumbers), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        status: 200,
+      });
     }
+
+    if (action === 'createPhoneCall') {
+      console.log('Creating phone call with params:', params);
+      const { from_number, to_number } = params;
+
+      if (!from_number || !to_number) {
+        throw new Error('Both from_number and to_number are required');
+      }
+
+      const call = await client.call.createPhoneCall({
+        from_number,
+        to_number,
+      });
+      
+      console.log('Successfully created phone call:', call);
+      return new Response(JSON.stringify(call), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        status: 201,
+      });
+    }
+
+    throw new Error(`Unsupported action: ${action}`);
   } catch (error) {
-    console.error('Error in edge function:', error)
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: error.status || 400,
-      }
-    )
+    console.error('Error processing request:', error);
+    
+    return new Response(JSON.stringify({
+      error: error.message || 'An unexpected error occurred',
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+      status: error.status || 400,
+    });
   }
-})
+});
+
