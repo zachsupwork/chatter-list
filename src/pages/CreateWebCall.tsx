@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,12 @@ interface Agent {
   agent_name: string | null;
 }
 
+declare global {
+  interface Window {
+    Retell: any;
+  }
+}
+
 const CreateWebCall = () => {
   const { agentId } = useParams();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -21,6 +28,7 @@ const CreateWebCall = () => {
   const [showCodeSnippet, setShowCodeSnippet] = useState(false);
   const [copied, setCopied] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const widgetContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -75,6 +83,33 @@ const CreateWebCall = () => {
     }
   }, [agentId, toast]);
 
+  useEffect(() => {
+    if (accessToken && widgetContainerRef.current) {
+      // Load Retell SDK script
+      const script = document.createElement('script');
+      script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
+      script.async = true;
+      script.onload = () => {
+        if (window.Retell && accessToken) {
+          try {
+            const widget = new window.Retell().widget.createCallWidget({
+              containerId: 'retell-call-widget',
+              accessToken: accessToken
+            });
+            console.log('Widget initialized:', widget);
+          } catch (err) {
+            console.error('Error initializing widget:', err);
+          }
+        }
+      };
+      document.body.appendChild(script);
+
+      return () => {
+        document.body.removeChild(script);
+      };
+    }
+  }, [accessToken]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -105,9 +140,6 @@ const CreateWebCall = () => {
         title: "Web call created successfully",
         description: `Call ID: ${data.call_id}`,
       });
-
-      // We'll keep the user on this page now so they can test the call
-      // navigate(`/calls/${data.call_id}`);
     } catch (err: any) {
       console.error('Error creating web call:', err);
       toast({
@@ -250,17 +282,12 @@ async function createCall() {
             </CardHeader>
             <CardContent>
               <div className="w-full h-[400px] bg-white rounded-lg border border-gray-200">
-                <div id="retell-call-widget" className="w-full h-full"></div>
+                <div 
+                  id="retell-call-widget" 
+                  ref={widgetContainerRef}
+                  className="w-full h-full"
+                ></div>
               </div>
-              <script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
-              <script dangerouslySetInnerHTML={{
-                __html: `
-                  const widget = new Retell().widget.createCallWidget({
-                    containerId: 'retell-call-widget',
-                    accessToken: '${accessToken}'
-                  });
-                `
-              }} />
             </CardContent>
           </Card>
         )}
@@ -303,3 +330,4 @@ async function createCall() {
 };
 
 export default CreateWebCall;
+
