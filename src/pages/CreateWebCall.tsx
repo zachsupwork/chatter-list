@@ -81,12 +81,33 @@ const CreateWebCall = () => {
 
   const checkMicrophonePermission = async () => {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Media devices API not available in this browser");
+      }
+
+      if (!window.isSecureContext) {
+        throw new Error("Microphone access requires a secure context (HTTPS or localhost)");
+      }
+
+      const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      
+      if (permissionStatus.state === 'denied') {
+        throw new Error("Microphone access is blocked. Please allow access in your browser settings.");
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error accessing microphone:', err);
-      return false;
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        throw new Error("Microphone access was denied. Please allow microphone access and try again.");
+      } else if (err.name === 'NotFoundError') {
+        throw new Error("No microphone found. Please connect a microphone and try again.");
+      } else {
+        throw new Error(err.message || "Failed to access microphone. Please ensure no other apps are using it.");
+      }
     }
   };
 
