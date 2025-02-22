@@ -57,19 +57,65 @@ serve(async (req) => {
         throw new Error('Both from_number and to_number are required');
       }
 
-      const call = await client.call.createPhoneCall({
-        from_number,
-        to_number,
-      });
-      
-      console.log('Successfully created phone call:', call);
-      return new Response(JSON.stringify(call), {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 201,
-      });
+      try {
+        const call = await client.call.createPhoneCall({
+          from_number,
+          to_number,
+        });
+        
+        console.log('Successfully created phone call:', call);
+        return new Response(JSON.stringify(call), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+          status: 201,
+        });
+      } catch (error) {
+        console.error('Error creating phone call:', error);
+        return new Response(JSON.stringify({
+          error: error.message || 'Error creating phone call'
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+          status: 400,
+        });
+      }
+    }
+
+    if (action === 'getCall') {
+      console.log('Fetching call details with params:', params);
+      const { filter_criteria } = params;
+
+      if (!filter_criteria?.call_id) {
+        throw new Error('call_id is required in filter_criteria');
+      }
+
+      try {
+        const call = await client.call.retrieve(filter_criteria.call_id);
+        console.log('Successfully fetched call details:', call);
+        
+        return new Response(JSON.stringify(call), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+          status: 200,
+        });
+      } catch (error) {
+        console.error('Error fetching call details:', error);
+        return new Response(JSON.stringify({
+          error: error.message || 'Error fetching call details'
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+          status: 404,
+        });
+      }
     }
 
     throw new Error(`Unsupported action: ${action}`);
@@ -87,4 +133,3 @@ serve(async (req) => {
     });
   }
 });
-

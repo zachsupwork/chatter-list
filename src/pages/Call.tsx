@@ -20,11 +20,13 @@ const Call = () => {
   const { callId } = useParams();
   const [call, setCall] = useState<CallData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchCall = async () => {
     try {
       setLoading(true);
+      setError(null);
       console.info('Fetching call details for ID:', callId);
 
       const { data, error } = await supabase.functions.invoke(
@@ -44,12 +46,13 @@ const Call = () => {
       }
 
       if (!data) {
-        throw new Error("No data received from the server");
+        throw new Error("Call not found");
       }
 
       setCall(data);
     } catch (err: any) {
       console.error('Error fetching call:', err);
+      setError(err.message || "Failed to load call details");
       toast({
         variant: "destructive",
         title: "Error fetching call",
@@ -65,7 +68,9 @@ const Call = () => {
       fetchCall();
       // Refresh call details every 5 seconds while the call is active
       const interval = setInterval(() => {
-        fetchCall();
+        if (call?.call_status === 'ongoing') {
+          fetchCall();
+        }
       }, 5000);
       return () => clearInterval(interval);
     }
@@ -87,15 +92,15 @@ const Call = () => {
     );
   }
 
-  if (!call) {
+  if (error || !call) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-4xl mx-auto">
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <p className="text-gray-500">Call not found</p>
-                <Button asChild className="mt-4">
+                <p className="text-gray-500 mb-4">{error || "Call not found"}</p>
+                <Button asChild>
                   <Link to="/calls">Back to calls</Link>
                 </Button>
               </div>
