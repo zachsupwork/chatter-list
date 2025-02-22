@@ -7,7 +7,6 @@ import { Video, Loader2, Code, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
-import { RetellWebClient } from "retell-client-js-sdk";
 
 interface Agent {
   agent_id: string;
@@ -25,7 +24,7 @@ const CreateWebCall = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
   const widgetContainerRef = useRef<HTMLDivElement>(null);
-  const retellClientRef = useRef<RetellWebClient | null>(null);
+  const widgetInstanceRef = useRef<any>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -80,57 +79,65 @@ const CreateWebCall = () => {
     }
   }, [agentId, toast]);
 
+  useEffect(() => {
+    // Cleanup widget when component unmounts or when call ends
+    return () => {
+      if (widgetInstanceRef.current) {
+        try {
+          widgetInstanceRef.current.destroy();
+          widgetInstanceRef.current = null;
+        } catch (err) {
+          console.error('Error cleaning up widget:', err);
+        }
+      }
+    };
+  }, []);
+
   const initializeCall = async () => {
-    if (!accessToken) return;
+    if (!accessToken || !widgetContainerRef.current) return;
 
     try {
-      console.log('Initializing Retell Web Client...');
-      
-      // Create a new instance of RetellWebClient
-      if (!retellClientRef.current) {
-        retellClientRef.current = new RetellWebClient();
+      // Clean up any existing widget
+      if (widgetInstanceRef.current) {
+        widgetInstanceRef.current.destroy();
+        widgetInstanceRef.current = null;
       }
 
-      // Set up event listeners
-      retellClientRef.current.on("call_started", () => {
-        console.log("Call started");
-        setIsCallActive(true);
-        toast({
-          title: "Call started",
-          description: "You are now connected with the agent",
-        });
-      });
-
-      retellClientRef.current.on("call_ended", () => {
-        console.log("Call ended");
-        setIsCallActive(false);
-        toast({
-          title: "Call ended",
-          description: "The call has been disconnected",
-        });
-      });
-
-      retellClientRef.current.on("error", (error) => {
-        console.error("Call error:", error);
-        setIsCallActive(false);
-        toast({
-          variant: "destructive",
-          title: "Call error",
-          description: error.message || "An error occurred during the call",
-        });
-        retellClientRef.current?.stopCall();
-      });
-
-      // Start the call with the access token
-      await retellClientRef.current.startCall({
+      console.log('Initializing Retell Widget...');
+      
+      // Create new widget instance
+      // @ts-ignore - Retell will be available globally
+      widgetInstanceRef.current = Retell.widget.createCallWidget({
+        containerId: 'retell-call-widget',
         accessToken: accessToken,
-        captureDeviceId: "default",
+        onCallStarted: () => {
+          console.log("Call started");
+          setIsCallActive(true);
+          toast({
+            title: "Call started",
+            description: "You are now connected with the agent",
+          });
+        },
+        onCallEnded: () => {
+          console.log("Call ended");
+          setIsCallActive(false);
+          toast({
+            title: "Call ended",
+            description: "The call has been disconnected",
+          });
+        },
+        onError: (error: any) => {
+          console.error("Call error:", error);
+          setIsCallActive(false);
+          toast({
+            variant: "destructive",
+            title: "Call error",
+            description: error.message || "An error occurred during the call",
+          });
+        }
       });
-
-      console.log('Call initialized successfully');
     } catch (err) {
-      console.error('Error initializing call:', err);
-      setIsCallActive(false);
+      console.error('Error initializing widget:', err);
       toast({
         variant: "destructive",
         title: "Error initializing call",
@@ -140,9 +147,14 @@ const CreateWebCall = () => {
   };
 
   const handleEndCall = () => {
-    if (retellClientRef.current) {
-      retellClientRef.current.stopCall();
-      setIsCallActive(false);
+    if (widgetInstanceRef.current) {
+      try {
+        widgetInstanceRef.current.destroy();
+        widgetInstanceRef.current = null;
+        setIsCallActive(false);
+      } catch (err) {
+        console.error('Error ending call:', err);
+      }
     }
   };
 
@@ -330,6 +342,7 @@ const widget = Retell.widget.createCallWidget({
                     </Button>
                   )}
                 </div>
+                <div id="retell-call-widget" ref={widgetContainerRef} className="mt-4" />
               </CardContent>
             </Card>
 
@@ -373,3 +386,4 @@ const widget = Retell.widget.createCallWidget({
 };
 
 export default CreateWebCall;
+
