@@ -34,6 +34,7 @@ export default function ListAgents() {
 
   const fetchAgents = async () => {
     try {
+      setIsLoading(true);
       console.log("Fetching API key from Supabase...");
       const { data, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
@@ -97,10 +98,25 @@ export default function ListAgents() {
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button onClick={() => navigate('/create-agent')}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Agent
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate('/create-agent')}>
+                  New Agent
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/create-web-call')}>
+                  New Web Call
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/create-call')}>
+                  New Phone Call
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
         <CardContent>
@@ -115,7 +131,7 @@ export default function ListAgents() {
                   <TableHead>Voice ID</TableHead>
                   <TableHead>Language</TableHead>
                   <TableHead>Voice Model</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -143,6 +159,12 @@ export default function ListAgents() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => navigate(`/agents/${agent.agent_id}`)}>
                               View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate('/create-web-call')}>
+                              Create Web Call
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate('/create-call')}>
+                              Create Phone Call
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

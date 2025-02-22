@@ -80,6 +80,7 @@ export default function AgentDetails() {
         throw new Error("Agent ID is required");
       }
 
+      setIsLoading(true);
       console.log("Fetching API key from Supabase...");
       const { data, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
@@ -175,16 +176,19 @@ export default function AgentDetails() {
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <MoreHorizontal className="h-4 w-4" />
+                <Button>
+                  Create Call
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate('/create-call')}>
-                  Create Call
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/create-web-call')}>
-                  Create Web Call
+                  New Web Call
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/create-call')}>
+                  New Phone Call
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/create-batch-call')}>
+                  New Batch Call
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
