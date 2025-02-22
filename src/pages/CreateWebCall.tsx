@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Code } from "lucide-react";
+import { Video, Loader2, Code, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +19,7 @@ const CreateWebCall = () => {
   const [loading, setLoading] = useState(false);
   const [fetchingAgents, setFetchingAgents] = useState(true);
   const [showCodeSnippet, setShowCodeSnippet] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -101,6 +102,24 @@ const webCallResponse = await client.call.createWebCall({
 
 console.log(webCallResponse);`;
 
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(codeSnippet);
+      setCopied(true);
+      toast({
+        title: "Code copied",
+        description: "The code snippet has been copied to your clipboard",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Failed to copy",
+        description: "Please try copying the code manually",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -176,7 +195,19 @@ console.log(webCallResponse);`;
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto">
+              <div className="relative bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="absolute right-2 top-2"
+                  onClick={handleCopyCode}
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
                 <pre className="text-sm">
                   <code>{codeSnippet}</code>
                 </pre>
