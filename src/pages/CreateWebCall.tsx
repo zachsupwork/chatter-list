@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -85,52 +84,49 @@ const CreateWebCall = () => {
   }, [agentId, toast]);
 
   useEffect(() => {
-    if (accessToken && widgetContainerRef.current && !widgetInitialized) {
-      const initializeWidget = async () => {
-        try {
-          // Load Retell SDK script if not already loaded
-          if (!window.Retell) {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
-            script.async = true;
-            await new Promise((resolve, reject) => {
-              script.onload = resolve;
-              script.onerror = reject;
-              document.body.appendChild(script);
-            });
-          }
+    const createWidget = async () => {
+      if (!accessToken || !widgetContainerRef.current || widgetInitialized) return;
 
-          // Initialize the widget
-          console.log('Initializing widget with token:', accessToken);
-          const widget = new window.Retell().widget.createCallWidget({
-            containerId: 'retell-call-widget',
-            accessToken: accessToken,
-          });
-
-          console.log('Widget initialized successfully:', widget);
-          setWidgetInitialized(true);
-
-        } catch (err) {
-          console.error('Error initializing widget:', err);
-          toast({
-            variant: "destructive",
-            title: "Error initializing call widget",
-            description: "Failed to load the call widget. Please try again.",
+      try {
+        // Load SDK if not already loaded
+        if (!window.Retell) {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
+          script.async = true;
+          await new Promise<void>((resolve, reject) => {
+            script.onload = () => resolve();
+            script.onerror = () => reject();
+            document.body.appendChild(script);
           });
         }
-      };
 
-      initializeWidget();
+        // Initialize widget
+        console.log('Creating widget with token:', accessToken);
+        const widget = new window.Retell.widget.createCallWidget({
+          containerId: 'retell-call-widget',
+          accessToken: accessToken,
+        });
 
-      return () => {
-        setWidgetInitialized(false);
-        // Remove the script tag if it exists
-        const scriptTag = document.querySelector('script[src="https://cdn.retellai.com/sdk/web-sdk.js"]');
-        if (scriptTag) {
-          document.body.removeChild(scriptTag);
-        }
-      };
-    }
+        console.log('Widget created successfully:', widget);
+        setWidgetInitialized(true);
+      } catch (err) {
+        console.error('Error creating widget:', err);
+        toast({
+          variant: "destructive",
+          title: "Error initializing call widget",
+          description: "Failed to load the call widget. Please try again.",
+        });
+      }
+    };
+
+    createWidget();
+
+    // Cleanup function
+    return () => {
+      setWidgetInitialized(false);
+      const script = document.querySelector('script[src="https://cdn.retellai.com/sdk/web-sdk.js"]');
+      if (script) script.remove();
+    };
   }, [accessToken, widgetInitialized, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -305,11 +301,12 @@ async function createCall() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="w-full h-[400px] bg-white rounded-lg border border-gray-200">
+              <div className="w-full h-[400px] bg-white rounded-lg border border-gray-200 relative">
                 <div 
                   id="retell-call-widget" 
                   ref={widgetContainerRef}
                   className="w-full h-full"
+                  style={{ minHeight: '400px' }}
                 ></div>
               </div>
             </CardContent>
@@ -354,4 +351,3 @@ async function createCall() {
 };
 
 export default CreateWebCall;
-
