@@ -9,6 +9,8 @@ import CreateBatchCall from "@/pages/CreateBatchCall";
 import CreatePhoneNumber from "@/pages/CreatePhoneNumber";
 import ImportPhoneNumber from "@/pages/ImportPhoneNumber";
 import CreateAgent from "@/pages/CreateAgent";
+import ListAgents from "@/pages/ListAgents";
+import AgentDetails from "@/pages/AgentDetails";
 import NotFound from "@/pages/NotFound";
 import SideMenu from "@/components/SideMenu";
 import "./App.css";
@@ -28,6 +30,8 @@ function App() {
             <Route path="/create-phone-number" element={<CreatePhoneNumber />} />
             <Route path="/import-phone-number" element={<ImportPhoneNumber />} />
             <Route path="/create-agent" element={<CreateAgent />} />
+            <Route path="/agents" element={<ListAgents />} />
+            <Route path="/agents/:agentId" element={<AgentDetails />} />
             <Route path="/calls" element={<Index />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
