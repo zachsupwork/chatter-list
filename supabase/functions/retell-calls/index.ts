@@ -26,7 +26,7 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    // Base Retell API URL - Make sure we use v2
+    // Base Retell API URL for v2 endpoints
     const RETELL_API_BASE = 'https://api.retellai.com/v2';
 
     // Get the action and params from the request body
@@ -36,10 +36,53 @@ serve(async (req) => {
     let response;
 
     switch (action) {
+      case 'getApiKey': {
+        // Return the API key for client-side use
+        return new Response(
+          JSON.stringify({ RETELL_API_KEY }),
+          { headers: { ...corsHeaders }, status: 200 }
+        );
+      }
+
       case 'listPhoneNumbers': {
-        const url = new URL(`${RETELL_API_BASE}/phone-numbers`);
-        console.log('Making request to:', url.toString());
+        console.log('Fetching phone numbers from Retell API...');
+        response = await fetch(`${RETELL_API_BASE}/phone-numbers`, {
+          method: 'GET',
+          headers,
+        });
+        break;
+      }
+
+      case 'listCalls': {
+        const { filter_criteria, sort_order = 'descending', limit = 50, pagination_key } = params;
+        const url = new URL(`${RETELL_API_BASE}/list-calls`);
+        
+        // Add query parameters
+        const requestBody: any = {
+          sort_order,
+          limit
+        };
+
+        if (pagination_key) {
+          requestBody.pagination_key = pagination_key;
+        }
+
+        if (filter_criteria) {
+          requestBody.filter_criteria = filter_criteria;
+        }
+
+        console.log('Fetching calls with params:', requestBody);
         response = await fetch(url.toString(), {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody)
+        });
+        break;
+      }
+
+      case 'listAgents': {
+        console.log('Fetching agents from Retell API...');
+        response = await fetch(`${RETELL_API_BASE}/list-agents`, {
           method: 'GET',
           headers,
         });
