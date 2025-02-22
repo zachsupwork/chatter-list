@@ -38,31 +38,40 @@ export default function ListAgents() {
     try {
       setIsLoading(true);
       setIsError(false);
-      console.log('Fetching agents data...');
+      console.log('Fetching API key from Supabase...');
       
-      const { data: response, error } = await supabase.functions.invoke(
+      // First get the API key securely from Supabase
+      const { data: secretData, error: secretError } = await supabase.functions.invoke(
         'retell-calls',
         {
-          body: { action: 'listAgents' }
+          body: { action: 'getApiKey' }
         }
       );
 
-      if (error) {
-        console.error("Error in fetchAgents:", error);
-        setIsError(true);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message || "Failed to fetch agents",
-        });
-        return;
+      if (secretError || !secretData?.RETELL_API_KEY) {
+        throw new Error('Could not retrieve API key');
       }
 
-      // Handle both array and object responses from the API
-      const agentsData = Array.isArray(response) ? response : 
-                        response?.agents ? response.agents : [];
+      console.log('Fetching agents data from Retell API...');
+      const response = await fetch('https://api.retellai.com/agents', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${secretData.RETELL_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Received agents data:', data);
       
-      console.log('Received agents data:', agentsData);
+      // Handle both array and object responses from the API
+      const agentsData = Array.isArray(data) ? data : 
+                        data?.agents ? data.agents : [];
+      
       setAgents(agentsData);
       setIsError(false);
     } catch (error: any) {
