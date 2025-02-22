@@ -28,7 +28,7 @@ export default function ListAgents() {
   const fetchAgents = async () => {
     try {
       console.log("Fetching API key from Supabase...");
-      const { data: { RETELL_API_KEY }, error: apiKeyError } = await supabase.functions.invoke(
+      const { data, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
         {
           body: {
@@ -37,27 +37,32 @@ export default function ListAgents() {
         }
       );
 
-      if (apiKeyError) {
+      if (apiKeyError || !data?.RETELL_API_KEY) {
         console.error("Error fetching API key:", apiKeyError);
         throw new Error("Failed to fetch API key");
       }
 
-      console.log("API key retrieved successfully, making request to Retell API...");
+      console.log("API key retrieved successfully");
+      console.log("Making request to Retell API...");
+      
       const response = await fetch("https://api.retellai.com/list-agents", {
         headers: {
-          "Authorization": `Bearer ${RETELL_API_KEY}`
+          "Authorization": `Bearer ${data.RETELL_API_KEY}`,
+          "Content-Type": "application/json"
         }
       });
 
+      const responseText = await response.text();
+      console.log("Raw API Response:", responseText);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Retell API error:", response.status, errorText);
-        throw new Error(`Failed to fetch agents: ${response.status} ${errorText}`);
+        console.error("Retell API error:", response.status, responseText);
+        throw new Error(`Failed to fetch agents: ${response.status} ${responseText}`);
       }
 
-      const data = await response.json();
-      console.log("Agents fetched successfully:", data);
-      setAgents(data);
+      const agentsData = JSON.parse(responseText);
+      console.log("Agents fetched successfully:", agentsData);
+      setAgents(agentsData);
     } catch (error: any) {
       console.error("Error in fetchAgents:", error);
       toast({
@@ -126,4 +131,3 @@ export default function ListAgents() {
     </div>
   );
 }
-

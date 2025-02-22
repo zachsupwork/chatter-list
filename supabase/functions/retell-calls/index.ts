@@ -7,87 +7,41 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { action, call_id, filter_criteria, limit = 50, from_number, to_number, agent_id } = await req.json()
+    const { action } = await req.json()
+    console.log(`Processing action: ${action}`)
 
-    const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
-    if (!RETELL_API_KEY) {
-      throw new Error('RETELL_API_KEY is required')
-    }
+    if (action === 'getApiKey') {
+      const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
+      
+      if (!RETELL_API_KEY) {
+        console.error('RETELL_API_KEY is not set in environment variables')
+        throw new Error('API key not configured')
+      }
 
-    let url = 'https://api.retellai.com/v2/'
-    let method = 'POST'
-    let body: any = {}
-
-    switch (action) {
-      case 'createWebCall':
-        url += 'create-web-call'
-        body = { agent_id }
-        break
-      case 'createPhoneCall':
-        url += 'create-phone-call'
-        body = { from_number, to_number }
-        break
-      case 'listAgents':
-        url = 'https://api.retellai.com/list-agents'
-        method = 'GET'
-        break
-      case 'get':
-        url += `get-call/${call_id}`
-        method = 'GET'
-        break
-      case 'listCalls':
-      default:
-        url += 'list-calls'
-        body = {
-          filter_criteria,
-          limit,
-          sort_order: 'descending'
-        }
-    }
-
-    console.log('Making request to:', url)
-    if (method !== 'GET') {
-      console.log('With body:', JSON.stringify(body))
-    }
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Authorization': `Bearer ${RETELL_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      ...(method === 'GET' ? {} : { body: JSON.stringify(body) })
-    })
-
-    const responseData = await response.json()
-    console.log('Raw response data:', responseData)
-
-    if (!response.ok) {
-      throw new Error(responseData.error?.message || `Failed to ${action}`)
-    }
-
-    // Transform response for listCalls action
-    if (action === 'listCalls' || !action) {
+      console.log('Successfully retrieved API key')
       return new Response(
-        JSON.stringify({ calls: responseData }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          RETELL_API_KEY
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
       )
     }
 
-    // For other actions, return the raw response
-    return new Response(
-      JSON.stringify(responseData),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    throw new Error(`Unsupported action: ${action}`)
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in retell-calls function:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message || 'An error occurred processing the request' 
+      }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

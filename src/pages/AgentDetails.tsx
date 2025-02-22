@@ -74,7 +74,7 @@ export default function AgentDetails() {
   const fetchAgentDetails = async () => {
     try {
       console.log("Fetching API key from Supabase...");
-      const { data: { RETELL_API_KEY }, error: apiKeyError } = await supabase.functions.invoke(
+      const { data, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
         {
           body: {
@@ -83,27 +83,32 @@ export default function AgentDetails() {
         }
       );
 
-      if (apiKeyError) {
+      if (apiKeyError || !data?.RETELL_API_KEY) {
         console.error("Error fetching API key:", apiKeyError);
         throw new Error("Failed to fetch API key");
       }
 
-      console.log("API key retrieved successfully, making request to Retell API...");
+      console.log("API key retrieved successfully");
+      console.log("Making request to Retell API...");
+      
       const response = await fetch(`https://api.retellai.com/get-agent/${agentId}`, {
         headers: {
-          "Authorization": `Bearer ${RETELL_API_KEY}`
+          "Authorization": `Bearer ${data.RETELL_API_KEY}`,
+          "Content-Type": "application/json"
         }
       });
 
+      const responseText = await response.text();
+      console.log("Raw API Response:", responseText);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Retell API error:", response.status, errorText);
-        throw new Error(`Failed to fetch agent details: ${response.status} ${errorText}`);
+        console.error("Retell API error:", response.status, responseText);
+        throw new Error(`Failed to fetch agent details: ${response.status} ${responseText}`);
       }
 
-      const data = await response.json();
-      console.log("Agent details fetched successfully:", data);
-      setAgent(data);
+      const agentData = JSON.parse(responseText);
+      console.log("Agent details fetched successfully:", agentData);
+      setAgent(agentData);
     } catch (error: any) {
       console.error("Error in fetchAgentDetails:", error);
       toast({
@@ -136,25 +141,30 @@ export default function AgentDetails() {
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{agent.agent_name || "Unnamed Agent"}</CardTitle>
+          <CardTitle>{agent?.agent_name || "Unnamed Agent"}</CardTitle>
           <Button variant="outline" onClick={() => navigate('/agents')}>
             Back to Agents
           </Button>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            {Object.entries(agent).map(([key, value]) => (
-              <div key={key} className="space-y-1">
-                <div className="font-medium">{key}</div>
-                <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {renderValue(value)}
+          {isLoading ? (
+            <div className="text-center">Loading agent details...</div>
+          ) : !agent ? (
+            <div className="text-center">Agent not found</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {Object.entries(agent).map(([key, value]) => (
+                <div key={key} className="space-y-1">
+                  <div className="font-medium">{key}</div>
+                  <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {renderValue(value)}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
