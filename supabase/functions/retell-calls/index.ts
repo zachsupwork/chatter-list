@@ -20,12 +20,6 @@ serve(async (req) => {
     const { action, ...params } = await req.json();
     console.log(`Processing ${action} request with params:`, params);
 
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     // Get the API key first
     const apiKey = Deno.env.get('RETELL_API_KEY');
     if (!apiKey) {
@@ -43,6 +37,12 @@ serve(async (req) => {
     };
 
     switch (action) {
+      case 'getApiKey':
+        return new Response(
+          JSON.stringify({ RETELL_API_KEY: apiKey }),
+          { headers: corsHeaders }
+        );
+
       case 'listPhoneNumbers':
         try {
           const response = await fetch('https://api.retellai.com/v2/list-phone-numbers', {
@@ -51,7 +51,7 @@ serve(async (req) => {
           });
 
           if (!response.ok) {
-            throw new Error(`Retell API error: ${response.status}`);
+            throw new Error(`Retell API error: ${response.status} - ${await response.text()}`);
           }
 
           const data = await response.json();
@@ -59,7 +59,7 @@ serve(async (req) => {
         } catch (error) {
           console.error('Error listing phone numbers:', error);
           return new Response(
-            JSON.stringify({ error: error.message }),
+            JSON.stringify({ error: `Error listing phone numbers: ${error.message}` }),
             { status: 500, headers: corsHeaders }
           );
         }
@@ -70,7 +70,7 @@ serve(async (req) => {
 
           if (!from_number || !to_number) {
             return new Response(
-              JSON.stringify({ error: 'Missing required parameters' }),
+              JSON.stringify({ error: 'Missing required parameters: from_number and/or to_number' }),
               { status: 400, headers: corsHeaders }
             );
           }
@@ -85,16 +85,20 @@ serve(async (req) => {
           });
 
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create phone call');
+            const errorText = await response.text();
+            console.error('Retell API error response:', errorText);
+            throw new Error(`Retell API error: ${response.status} - ${errorText}`);
           }
 
           const data = await response.json();
-          return new Response(JSON.stringify(data), { headers: corsHeaders });
+          return new Response(JSON.stringify(data), { 
+            status: 201,
+            headers: corsHeaders 
+          });
         } catch (error) {
           console.error('Error creating phone call:', error);
           return new Response(
-            JSON.stringify({ error: error.message }),
+            JSON.stringify({ error: `Error creating phone call: ${error.message}` }),
             { status: 500, headers: corsHeaders }
           );
         }
@@ -120,53 +124,20 @@ serve(async (req) => {
           });
 
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create batch call');
+            const errorText = await response.text();
+            console.error('Retell API error response:', errorText);
+            throw new Error(`Retell API error: ${response.status} - ${errorText}`);
           }
 
           const data = await response.json();
-          return new Response(JSON.stringify(data), { headers: corsHeaders });
+          return new Response(JSON.stringify(data), { 
+            status: 201,
+            headers: corsHeaders 
+          });
         } catch (error) {
           console.error('Error creating batch call:', error);
           return new Response(
-            JSON.stringify({ error: error.message }),
-            { status: 500, headers: corsHeaders }
-          );
-        }
-
-      case 'createWebCall':
-        try {
-          const { agent_id } = params;
-
-          if (!agent_id) {
-            return new Response(
-              JSON.stringify({ error: 'Missing agent_id parameter' }),
-              { status: 400, headers: corsHeaders }
-            );
-          }
-
-          const response = await fetch('https://api.retellai.com/v2/create-web-call', {
-            method: 'POST',
-            headers: retellHeaders,
-            body: JSON.stringify({
-              agent_id
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create web call');
-          }
-
-          const data = await response.json();
-          return new Response(JSON.stringify(data), {
-            headers: corsHeaders,
-            status: 201 // Using 201 for successful creation
-          });
-        } catch (error) {
-          console.error('Error creating web call:', error);
-          return new Response(
-            JSON.stringify({ error: error.message }),
+            JSON.stringify({ error: `Error creating batch call: ${error.message}` }),
             { status: 500, headers: corsHeaders }
           );
         }
@@ -179,13 +150,46 @@ serve(async (req) => {
           });
 
           if (!response.ok) {
-            throw new Error(`Retell API error: ${response.status}`);
+            const errorText = await response.text();
+            console.error('Retell API error response:', errorText);
+            throw new Error(`Retell API error: ${response.status} - ${errorText}`);
           }
 
           const data = await response.json();
           return new Response(JSON.stringify(data), { headers: corsHeaders });
         } catch (error) {
           console.error('Error listing calls:', error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: corsHeaders }
+          );
+        }
+
+      case 'getCall':
+        try {
+          const { call_id } = params;
+          if (!call_id) {
+            return new Response(
+              JSON.stringify({ error: 'Missing call_id parameter' }),
+              { status: 400, headers: corsHeaders }
+            );
+          }
+
+          const response = await fetch(`https://api.retellai.com/v2/get-call/${call_id}`, {
+            method: 'GET',
+            headers: retellHeaders
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Retell API error response:', errorText);
+            throw new Error(`Retell API error: ${response.status} - ${errorText}`);
+          }
+
+          const data = await response.json();
+          return new Response(JSON.stringify(data), { headers: corsHeaders });
+        } catch (error) {
+          console.error('Error getting call:', error);
           return new Response(
             JSON.stringify({ error: error.message }),
             { status: 500, headers: corsHeaders }
