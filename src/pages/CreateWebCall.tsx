@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Video, Loader2, Code, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface Agent {
   agent_id: string;
@@ -14,59 +14,65 @@ interface Agent {
 }
 
 const CreateWebCall = () => {
+  const { agentId } = useParams(); // Get the agent ID from the URL
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [selectedAgentId, setSelectedAgentId] = useState(agentId || "");
   const [loading, setLoading] = useState(false);
-  const [fetchingAgents, setFetchingAgents] = useState(true);
+  const [fetchingAgents, setFetchingAgents] = useState(!agentId);
   const [showCodeSnippet, setShowCodeSnippet] = useState(false);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchAgents = async () => {
-      try {
-        const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
-          'retell-calls',
-          {
-            body: {
-              action: 'getApiKey'
+    // Only fetch agents if we don't have an agentId from the URL
+    if (!agentId) {
+      const fetchAgents = async () => {
+        try {
+          const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
+            'retell-calls',
+            {
+              body: {
+                action: 'getApiKey'
+              }
             }
+          );
+
+          if (apiError || !apiResponse?.RETELL_API_KEY) {
+            throw new Error("Failed to fetch API key");
           }
-        );
 
-        if (apiError || !apiResponse?.RETELL_API_KEY) {
-          throw new Error("Failed to fetch API key");
-        }
+          const response = await fetch("https://api.retellai.com/list-agents", {
+            method: 'GET',
+            headers: {
+              "Authorization": `Bearer ${apiResponse.RETELL_API_KEY}`,
+              "Content-Type": "application/json"
+            }
+          });
 
-        const response = await fetch("https://api.retellai.com/list-agents", {
-          method: 'GET',
-          headers: {
-            "Authorization": `Bearer ${apiResponse.RETELL_API_KEY}`,
-            "Content-Type": "application/json"
+          if (!response.ok) {
+            throw new Error(`Failed to fetch agents: ${response.status}`);
           }
-        });
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch agents: ${response.status}`);
+          const agentsData = await response.json();
+          setAgents(agentsData);
+        } catch (err: any) {
+          console.error('Error fetching agents:', err);
+          toast({
+            variant: "destructive",
+            title: "Error fetching agents",
+            description: err.message || "Failed to load agents",
+          });
+        } finally {
+          setFetchingAgents(false);
         }
+      };
 
-        const agentsData = await response.json();
-        setAgents(agentsData);
-      } catch (err: any) {
-        console.error('Error fetching agents:', err);
-        toast({
-          variant: "destructive",
-          title: "Error fetching agents",
-          description: err.message || "Failed to load agents",
-        });
-      } finally {
-        setFetchingAgents(false);
-      }
-    };
-
-    fetchAgents();
-  }, [toast]);
+      fetchAgents();
+    } else {
+      setFetchingAgents(false);
+    }
+  }, [agentId, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +157,14 @@ console.log(webCallResponse);`;
                 <label className="text-sm font-medium">
                   Select Agent
                 </label>
-                {fetchingAgents ? (
+                {agentId ? (
+                  <input
+                    type="text"
+                    value={selectedAgentId}
+                    disabled
+                    className="w-full bg-gray-100 border border-gray-300 rounded-md px-4 py-2"
+                  />
+                ) : fetchingAgents ? (
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Loading agents...
@@ -179,7 +192,7 @@ console.log(webCallResponse);`;
                   </Select>
                 )}
                 <p className="text-sm text-gray-500">
-                  Choose the agent that will handle this web call
+                  {agentId ? "Using pre-selected agent" : "Choose the agent that will handle this web call"}
                 </p>
               </div>
 

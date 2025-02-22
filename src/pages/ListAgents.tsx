@@ -160,7 +160,7 @@ export default function ListAgents() {
                             <DropdownMenuItem onClick={() => navigate(`/agents/${agent.agent_id}`)}>
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate('/create-web-call')}>
+                            <DropdownMenuItem onClick={() => navigate(`/create-web-call/${agent.agent_id}`)}>
                               Create Web Call
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => navigate('/create-call')}>
