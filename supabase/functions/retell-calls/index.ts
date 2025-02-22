@@ -45,19 +45,19 @@ serve(async (req) => {
       }
 
       case 'listPhoneNumbers': {
-        console.log('Fetching phone numbers from Retell API...');
-        response = await fetch(`${RETELL_API_BASE}/phone-numbers`, {
-          method: 'GET',
+        console.log('Fetching phone numbers...');
+        response = await fetch(`${RETELL_API_BASE}/list-phone-numbers`, {
+          method: 'POST',
           headers,
+          body: JSON.stringify({}) // Empty body for default list
         });
         break;
       }
 
       case 'listCalls': {
         const { filter_criteria, sort_order = 'descending', limit = 50, pagination_key } = params;
-        const url = new URL(`${RETELL_API_BASE}/list-calls`);
+        console.log('Fetching calls with params:', { filter_criteria, sort_order, limit, pagination_key });
         
-        // Add query parameters
         const requestBody: any = {
           sort_order,
           limit
@@ -71,8 +71,7 @@ serve(async (req) => {
           requestBody.filter_criteria = filter_criteria;
         }
 
-        console.log('Fetching calls with params:', requestBody);
-        response = await fetch(url.toString(), {
+        response = await fetch(`${RETELL_API_BASE}/list-calls`, {
           method: 'POST',
           headers,
           body: JSON.stringify(requestBody)
@@ -81,7 +80,7 @@ serve(async (req) => {
       }
 
       case 'listAgents': {
-        console.log('Fetching agents from Retell API...');
+        console.log('Fetching agents...');
         response = await fetch(`${RETELL_API_BASE}/list-agents`, {
           method: 'GET',
           headers,
@@ -96,8 +95,8 @@ serve(async (req) => {
         }
 
         // First, check if the number exists in their phone numbers
-        const numbersResponse = await fetch(`${RETELL_API_BASE}/phone-numbers`, {
-          method: 'GET',
+        const numbersResponse = await fetch(`${RETELL_API_BASE}/list-phone-numbers`, {
+          method: 'POST',
           headers,
         });
         
