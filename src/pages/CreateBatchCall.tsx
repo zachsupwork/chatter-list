@@ -74,23 +74,21 @@ export default function CreateBatchCall() {
       if (validationError) throw validationError;
 
       // If validation passes, proceed with batch call creation
-      const response = await fetch("/api/create-batch-call", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      const { data, error } = await supabase.functions.invoke(
+        'retell-calls',
+        {
+          body: {
+            action: 'createBatchCall',
+            ...formData,
+          }
+        }
+      );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create batch call");
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
-        description: `Batch call created with ID: ${data.batch_call_id}`,
+        description: `Batch call created successfully`,
       });
 
       navigate("/calls");

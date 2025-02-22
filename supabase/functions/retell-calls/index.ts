@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, call_id, filter_criteria, limit = 50, from_number, to_number, agent_id } = await req.json()
+    const { action, call_id, filter_criteria, limit = 50, from_number, to_number, agent_id, name, tasks, trigger_timestamp } = await req.json()
 
     const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
     if (!RETELL_API_KEY) {
@@ -24,9 +24,17 @@ serve(async (req) => {
     let body: any = {}
 
     switch (action) {
-      case 'createWebCall':
-        url += 'create-web-call'
-        body = { agent_id }
+      case 'createBatchCall':
+        url += 'create-batch-call'
+        body = { from_number, name, tasks }
+        if (trigger_timestamp) {
+          body.trigger_timestamp = trigger_timestamp
+        }
+        break
+      case 'validatePhoneNumber':
+        // Check if number is registered with Retell
+        url += 'list-phone-numbers'
+        method = 'GET'
         break
       case 'createPhoneCall':
         url += 'create-phone-call'
@@ -67,19 +75,25 @@ serve(async (req) => {
     const responseData = await response.json()
     console.log('Raw response data:', responseData)
 
-    if (!response.ok) {
-      throw new Error(responseData.error?.message || `Failed to ${action}`)
-    }
-
-    // Transform response for listCalls action
-    if (action === 'listCalls' || !action) {
+    // For validatePhoneNumber action, check if the phone number exists in the response
+    if (action === 'validatePhoneNumber') {
+      const phoneNumbers = responseData
+      const isValidNumber = phoneNumbers.some(
+        (phone: any) => phone.phone_number === from_number
+      )
+      if (!isValidNumber) {
+        throw new Error('Must be a number purchased from or imported to Retell')
+      }
       return new Response(
-        JSON.stringify({ calls: responseData }),
+        JSON.stringify({ valid: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // For other actions, return the raw response
+    if (!response.ok) {
+      throw new Error(responseData.error?.message || `Failed to ${action}`)
+    }
+
     return new Response(
       JSON.stringify(responseData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
