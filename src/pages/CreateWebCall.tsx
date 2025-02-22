@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -81,12 +82,30 @@ const CreateWebCall = () => {
 
   const checkMicrophonePermission = async () => {
     try {
+      // First check if the browser supports getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Your browser doesn't support microphone access. Please use a modern browser like Chrome or Firefox.");
+      }
+
+      // Check if we're in a secure context (HTTPS or localhost)
+      if (!window.isSecureContext) {
+        throw new Error("Microphone access requires a secure connection (HTTPS). Please ensure you're using HTTPS.");
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error accessing microphone:', err);
-      return false;
+      
+      // Handle specific permission errors
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        throw new Error("Microphone permission was denied. Please allow microphone access in your browser settings and try again.");
+      } else if (err.name === 'NotFoundError') {
+        throw new Error("No microphone was found. Please ensure you have a working microphone connected.");
+      }
+      
+      throw new Error(err.message || "Failed to access microphone. Please check your browser settings.");
     }
   };
 
@@ -103,18 +122,16 @@ const CreateWebCall = () => {
     try {
       setIsInitializing(true);
 
-      const hasMicPermission = await checkMicrophonePermission();
-      if (!hasMicPermission) {
-        throw new Error("Microphone access is required to start the call. Please allow microphone access and try again.");
-      }
+      // Check microphone permission before initializing
+      await checkMicrophonePermission();
 
-      console.log('Initializing Retell Web Client with access token:', accessToken);
-      
       if (retellClientRef.current) {
         retellClientRef.current.stopCall();
         retellClientRef.current = null;
       }
 
+      console.log('Initializing Retell Web Client with access token:', accessToken);
+      
       retellClientRef.current = new RetellWebClient();
 
       retellClientRef.current.on("call_started", () => {
@@ -152,6 +169,7 @@ const CreateWebCall = () => {
         }
       });
 
+      // Add a small delay to ensure everything is ready
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       await retellClientRef.current.startCall({
