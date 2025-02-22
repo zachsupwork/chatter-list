@@ -158,6 +158,78 @@ serve(async (req) => {
         );
       }
 
+      case 'createBatchCall': {
+        const { from_number, tasks, trigger_timestamp } = body;
+        if (!from_number || !Array.isArray(tasks) || tasks.length === 0) {
+          throw new Error("Missing required parameters: from_number and tasks array are required");
+        }
+
+        // Store batch call details for tracking
+        const batchCallId = crypto.randomUUID();
+        const calls = [];
+
+        // Create calls in sequence
+        for (const task of tasks) {
+          try {
+            const response = await fetch("https://api.retellai.com/create-phone-call", {
+              method: 'POST',
+              headers: {
+                "Authorization": `Bearer ${RETELL_API_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ 
+                from_number, 
+                to_number: task.to_number,
+                // If specified, schedule the call for later
+                trigger_timestamp: trigger_timestamp || undefined
+              })
+            });
+
+            const data = await response.text();
+            console.log('Retell API response (createBatchCall - single call):', response.status, data);
+
+            if (!response.ok) {
+              console.error(`Failed to create call to ${task.to_number}: ${response.status} - ${data}`);
+              calls.push({
+                to_number: task.to_number,
+                status: 'error',
+                error: `Failed to create call: ${response.status} - ${data}`
+              });
+              continue;
+            }
+
+            calls.push({
+              to_number: task.to_number,
+              status: 'success',
+              data: JSON.parse(data)
+            });
+          } catch (err) {
+            console.error(`Error creating call to ${task.to_number}:`, err);
+            calls.push({
+              to_number: task.to_number,
+              status: 'error',
+              error: err.message
+            });
+          }
+        }
+
+        return new Response(
+          JSON.stringify({
+            batch_call_id: batchCallId,
+            calls: calls,
+            summary: {
+              total: calls.length,
+              successful: calls.filter(c => c.status === 'success').length,
+              failed: calls.filter(c => c.status === 'error').length
+            }
+          }),
+          { 
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          }
+        );
+      }
+
       case 'createWebCall': {
         const { agent_id } = body;
         if (!agent_id) {
