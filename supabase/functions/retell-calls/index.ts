@@ -50,34 +50,10 @@ serve(async (req) => {
         });
 
         const data = await response.text();
-        console.log('Retell API response:', response.status, data);
+        console.log('Retell API response (listPhoneNumbers):', response.status, data);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch phone numbers: ${response.status} - ${data}`);
-        }
-
-        return new Response(
-          data,
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
-
-      case 'listAgents': {
-        const response = await fetch("https://api.retellai.com/list-agents", {
-          headers: {
-            "Authorization": `Bearer ${RETELL_API_KEY}`,
-            "Content-Type": "application/json"
-          }
-        });
-
-        const data = await response.text();
-        console.log('Retell API response:', response.status, data);
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch agents: ${response.status} - ${data}`);
         }
 
         return new Response(
@@ -101,11 +77,45 @@ serve(async (req) => {
           body: JSON.stringify({ limit })
         });
 
-        const data = await response.text();
-        console.log('Retell API response:', response.status, data);
+        const responseText = await response.text();
+        console.log('Retell API response (listCalls):', response.status, responseText);
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch calls: ${response.status} - ${data}`);
+          throw new Error(`Failed to fetch calls: ${response.status} - ${responseText}`);
+        }
+
+        // Try to parse the response as JSON, if it fails return error
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error('Failed to parse Retell API response:', e);
+          throw new Error('Invalid response from Retell API');
+        }
+
+        // Ensure we're returning the expected structure
+        return new Response(
+          JSON.stringify({ calls: Array.isArray(data) ? data : [] }),
+          { 
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          }
+        );
+      }
+
+      case 'listAgents': {
+        const response = await fetch("https://api.retellai.com/list-agents", {
+          headers: {
+            "Authorization": `Bearer ${RETELL_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        const data = await response.text();
+        console.log('Retell API response (listAgents):', response.status, data);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch agents: ${response.status} - ${data}`);
         }
 
         return new Response(
@@ -133,7 +143,7 @@ serve(async (req) => {
         });
 
         const data = await response.text();
-        console.log('Retell API response:', response.status, data);
+        console.log('Retell API response (createPhoneCall):', response.status, data);
 
         if (!response.ok) {
           throw new Error(`Failed to create phone call: ${response.status} - ${data}`);
@@ -164,7 +174,7 @@ serve(async (req) => {
         });
 
         const data = await response.text();
-        console.log('Retell API response:', response.status, data);
+        console.log('Retell API response (createWebCall):', response.status, data);
 
         if (!response.ok) {
           throw new Error(`Failed to create web call: ${response.status} - ${data}`);
