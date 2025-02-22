@@ -137,10 +137,10 @@ const CreateWebCall = () => {
         retellClientRef.current = null;
       }
 
-      retellClientRef.current = new RetellWebClient();
+      const client = new RetellWebClient();
       console.log('RetellWebClient instance created');
 
-      retellClientRef.current.on("call_started", () => {
+      client.on("call_started", () => {
         console.log("Call started successfully");
         setIsCallActive(true);
         setIsInitializing(false);
@@ -150,7 +150,12 @@ const CreateWebCall = () => {
         });
       });
 
-      retellClientRef.current.on("call_ended", () => {
+      client.on("call_connecting", () => {
+        console.log("Call is connecting...");
+        setIsInitializing(true);
+      });
+
+      client.on("call_ended", () => {
         console.log("Call ended");
         setIsCallActive(false);
         setIsInitializing(false);
@@ -160,7 +165,7 @@ const CreateWebCall = () => {
         });
       });
 
-      retellClientRef.current.on("error", (error) => {
+      client.on("error", (error) => {
         console.error("Call error:", error);
         setIsCallActive(false);
         setIsInitializing(false);
@@ -169,16 +174,23 @@ const CreateWebCall = () => {
           title: "Call error",
           description: error.message || "An error occurred during the call",
         });
-        if (retellClientRef.current) {
-          retellClientRef.current.stopCall();
-          retellClientRef.current = null;
+        if (client) {
+          client.stopCall();
         }
       });
 
+      retellClientRef.current = client;
+
       console.log('Starting call with access token:', accessToken);
-      await retellClientRef.current.startCall({
+      await client.startCall({
         accessToken: accessToken,
         captureDeviceId: "default",
+        enableVAD: true,
+        vadOptions: {
+          vadThreshold: 0.5,
+          vadAutoThreshold: true,
+          vadAutoThresholdBias: 0,
+        },
       });
 
     } catch (err: any) {
@@ -309,6 +321,11 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Call started successfully');
         button.textContent = 'End Call';
         button.disabled = false;
+      });
+
+      retellClient.on('call_connecting', () => {
+        console.log('Call is connecting...');
+        isInitializing = true;
       });
 
       retellClient.on('call_ended', () => {
