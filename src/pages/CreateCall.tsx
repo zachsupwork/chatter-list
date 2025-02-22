@@ -7,7 +7,6 @@ import { Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PhoneNumber {
   phone_number: string;
@@ -103,30 +102,30 @@ const CreateCall = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="fromNumber" className="text-sm font-medium">
-                  From Number
+                  From Number (E.164 format)
                 </label>
-                <Select
+                <Input
+                  id="fromNumber"
+                  placeholder="+12137774445"
                   value={fromNumber}
-                  onValueChange={setFromNumber}
-                >
-                  <SelectTrigger className="font-mono">
-                    <SelectValue placeholder="Select a phone number" />
-                  </SelectTrigger>
-                  <SelectContent>
+                  onChange={(e) => setFromNumber(e.target.value)}
+                  required
+                  pattern="^\+[1-9]\d{1,14}$"
+                  className="font-mono"
+                />
+                <div className="text-sm text-gray-500 space-y-1">
+                  <p>Must be a number purchased from or imported to Retell</p>
+                  <p>Available numbers:</p>
+                  <ul className="list-disc pl-5 font-mono">
                     {fromNumbers.map((number) => (
-                      <SelectItem 
-                        key={number.phone_number} 
-                        value={number.phone_number}
-                        className="font-mono"
-                      >
-                        {number.nickname ? `${number.phone_number_pretty} (${number.nickname})` : number.phone_number_pretty}
-                      </SelectItem>
+                      <li key={number.phone_number}>
+                        {number.nickname 
+                          ? `${number.phone_number_pretty} (${number.nickname})` 
+                          : number.phone_number_pretty}
+                      </li>
                     ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-gray-500">
-                  Must be a number purchased from or imported to Retell
-                </p>
+                  </ul>
+                </div>
               </div>
 
               <div className="space-y-2">
