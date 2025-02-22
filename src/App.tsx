@@ -8,6 +8,7 @@ import CreateWebCall from "@/pages/CreateWebCall";
 import CreateBatchCall from "@/pages/CreateBatchCall";
 import CreatePhoneNumber from "@/pages/CreatePhoneNumber";
 import ImportPhoneNumber from "@/pages/ImportPhoneNumber";
+import CreateAgent from "@/pages/CreateAgent";
 import NotFound from "@/pages/NotFound";
 import SideMenu from "@/components/SideMenu";
 import "./App.css";
@@ -24,6 +25,7 @@ const App = () => {
         <Route path="/create-batch-call" element={<CreateBatchCall />} />
         <Route path="/create-phone-number" element={<CreatePhoneNumber />} />
         <Route path="/import-phone-number" element={<ImportPhoneNumber />} />
+        <Route path="/create-agent" element={<CreateAgent />} />
         <Route path="/calls" element={<Index />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
