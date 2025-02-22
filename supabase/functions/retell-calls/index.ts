@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, limit = 50 } = await req.json()
+    const { action, limit = 50, agent_id } = await req.json()
 
     switch (action) {
       case 'getApiKey':
@@ -65,7 +65,11 @@ serve(async (req) => {
         )
 
       case 'createWebCall':
-        const { agent_id } = await req.json();
+        console.log('Creating web call with agent:', agent_id)
+        if (!agent_id) {
+          throw new Error('agent_id is required')
+        }
+
         const webCallResponse = await fetch("https://api.retellai.com/v2/create-web-call", {
           method: 'POST',
           headers: {
@@ -74,8 +78,15 @@ serve(async (req) => {
           },
           body: JSON.stringify({ agent_id })
         });
-        
-        const webCallData = await webCallResponse.json();
+
+        if (!webCallResponse.ok) {
+          const errorText = await webCallResponse.text()
+          console.error('Error creating web call:', errorText)
+          throw new Error(`Failed to create web call: ${webCallResponse.status} - ${errorText}`)
+        }
+
+        const webCallData = await webCallResponse.json()
+        console.log('Successfully created web call:', webCallData)
         return new Response(
           JSON.stringify(webCallData),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -95,3 +106,4 @@ serve(async (req) => {
     )
   }
 })
+
