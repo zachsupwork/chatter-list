@@ -307,5 +307,5 @@ export default function CreateAgent() {
         </CardContent>
       </Card>
     </div>
-  </form>;
-};
+  );
+}
