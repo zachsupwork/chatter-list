@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,6 +7,7 @@ import { Video, Loader2, Code, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
+import { RetellWebClient } from "retell-client-js-sdk";
 
 interface Agent {
   agent_id: string;
@@ -23,7 +25,7 @@ const CreateWebCall = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
   const widgetContainerRef = useRef<HTMLDivElement>(null);
-  const widgetInstanceRef = useRef<any>(null);
+  const retellClientRef = useRef<RetellWebClient | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -78,73 +80,71 @@ const CreateWebCall = () => {
     }
   }, [agentId, toast]);
 
-  useEffect(() => {
-    return () => {
-      if (widgetInstanceRef.current) {
-        try {
-          widgetInstanceRef.current.destroy();
-          widgetInstanceRef.current = null;
-        } catch (err) {
-          console.error('Error cleaning up widget:', err);
-        }
+  const initializeCall = async () => {
+    if (!accessToken) return;
+
+    try {
+      console.log('Initializing Retell Web Client...');
+      
+      // Create a new instance of RetellWebClient
+      if (!retellClientRef.current) {
+        retellClientRef.current = new RetellWebClient();
       }
-    };
-  }, []);
 
-  const embedCodeSnippet = `
-<!-- Add this to your HTML -->
-<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+      // Set up event listeners
+      retellClientRef.current.on("call_started", () => {
+        console.log("Call started");
+        setIsCallActive(true);
+        toast({
+          title: "Call started",
+          description: "You are now connected with the agent",
+        });
+      });
 
-<!-- Default widget styles -->
-<style>
-  #retell-call-widget {
-    max-width: 400px;
-    margin: 20px auto;
-    padding: 20px;
-    font-family: system-ui, -apple-system, sans-serif;
-  }
-  
-  #retell-call-button {
-    background-color: #2563eb;
-    color: white;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 auto;
-  }
-  
-  #retell-call-button:hover {
-    background-color: #1d4ed8;
-  }
+      retellClientRef.current.on("call_ended", () => {
+        console.log("Call ended");
+        setIsCallActive(false);
+        toast({
+          title: "Call ended",
+          description: "The call has been disconnected",
+        });
+      });
 
-  #retell-call-button svg {
-    width: 20px;
-    height: 20px;
-  }
-</style>
+      retellClientRef.current.on("error", (error) => {
+        console.error("Call error:", error);
+        setIsCallActive(false);
+        toast({
+          variant: "destructive",
+          title: "Call error",
+          description: error.message || "An error occurred during the call",
+        });
+        retellClientRef.current?.stopCall();
+      });
 
-<!-- Add this where you want the call widget to appear -->
-<div id="retell-call-widget"></div>
+      // Start the call with the access token
+      await retellClientRef.current.startCall({
+        accessToken: accessToken,
+        captureDeviceId: "default",
+      });
 
-<script>
-const widget = Retell.widget.createCallWidget({
-  containerId: 'retell-call-widget',
-  accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
-  renderButton: true, // Enable default button rendering
-  buttonConfig: {
-    // Optional: Configure button appearance
-    text: 'Start Call',
-    icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>'
-  }
-});
-</script>
-  `.trim();
+      console.log('Call initialized successfully');
+    } catch (err) {
+      console.error('Error initializing call:', err);
+      setIsCallActive(false);
+      toast({
+        variant: "destructive",
+        title: "Error initializing call",
+        description: "Failed to start the call. Please try again.",
+      });
+    }
+  };
+
+  const handleEndCall = () => {
+    if (retellClientRef.current) {
+      retellClientRef.current.stopCall();
+      setIsCallActive(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,76 +188,20 @@ const widget = Retell.widget.createCallWidget({
     }
   };
 
-  const initializeCall = async () => {
-    if (!accessToken || !widgetContainerRef.current) return;
+  const embedCodeSnippet = `
+<!-- Add this to your HTML -->
+<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
 
-    try {
-      // Clean up any existing widget
-      if (widgetInstanceRef.current) {
-        widgetInstanceRef.current.destroy();
-        widgetInstanceRef.current = null;
-      }
+<!-- Add this where you want the call widget to appear -->
+<div id="retell-call-widget"></div>
 
-      console.log('Initializing Retell Widget...');
-      
-      // Create new widget instance
-      // @ts-ignore - Retell will be available globally
-      widgetInstanceRef.current = Retell.widget.createCallWidget({
-        containerId: 'retell-call-widget',
-        accessToken: accessToken,
-        renderButton: true, // Enable default button rendering
-        buttonConfig: {
-          // Configure button appearance for the app
-          text: 'Start Call',
-          icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>'
-        },
-        onCallStarted: () => {
-          console.log("Call started");
-          setIsCallActive(true);
-          toast({
-            title: "Call started",
-            description: "You are now connected with the agent",
-          });
-        },
-        onCallEnded: () => {
-          console.log("Call ended");
-          setIsCallActive(false);
-          toast({
-            title: "Call ended",
-            description: "The call has been disconnected",
-          });
-        },
-        onError: (error: any) => {
-          console.error("Call error:", error);
-          setIsCallActive(false);
-          toast({
-            variant: "destructive",
-            title: "Call error",
-            description: error.message || "An error occurred during the call",
-          });
-        }
-      });
-    } catch (err) {
-      console.error('Error initializing widget:', err);
-      toast({
-        variant: "destructive",
-        title: "Error initializing call",
-        description: "Failed to start the call. Please try again.",
-      });
-    }
-  };
-
-  const handleEndCall = () => {
-    if (widgetInstanceRef.current) {
-      try {
-        widgetInstanceRef.current.destroy();
-        widgetInstanceRef.current = null;
-        setIsCallActive(false);
-      } catch (err) {
-        console.error('Error ending call:', err);
-      }
-    }
-  };
+<script>
+const widget = Retell.widget.createCallWidget({
+  containerId: 'retell-call-widget',
+  accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}'
+});
+</script>
+  `;
 
   const handleCopyCode = async () => {
     try {
@@ -366,16 +310,26 @@ const widget = Retell.widget.createCallWidget({
                 <p className="text-sm text-gray-500">
                   Click the button below to start the call with the agent. Make sure your microphone is enabled.
                 </p>
-                <div id="retell-call-widget" ref={widgetContainerRef} className="mt-4" />
-                {isCallActive && (
-                  <Button
-                    onClick={handleEndCall}
-                    className="w-full"
-                    variant="destructive"
-                  >
-                    End Call
-                  </Button>
-                )}
+                <div className="flex gap-4">
+                  {!isCallActive ? (
+                    <Button
+                      onClick={initializeCall}
+                      className="w-full"
+                      variant="default"
+                    >
+                      <Video className="mr-2 h-4 w-4" />
+                      Start Call
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleEndCall}
+                      className="w-full"
+                      variant="destructive"
+                    >
+                      End Call
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
