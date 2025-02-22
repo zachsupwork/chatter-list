@@ -188,79 +188,81 @@ const CreateWebCall = () => {
   };
 
   const embedCodeSnippet = `
-<div id="retell-call-widget"></div>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Retell Web Call Widget</title>
+</head>
+<body>
+  <!-- Widget container -->
+  <div id="retell-call-widget"></div>
 
-<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+  <!-- Retell SDK -->
+  <script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
 
-<style>
-  #retell-call-widget {
-    margin: 20px 0;
-    min-height: 44px;
-  }
-  .retell-call-button {
-    background-color: #2563eb;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    font-family: system, -apple-system, sans-serif;
-    font-size: 14px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    transition: background-color 0.2s;
-    min-width: 150px;
-    justify-content: center;
-  }
-  .retell-call-button:hover {
-    background-color: #1d4ed8;
-  }
-</style>
-
-<script>
-  // Wait for the SDK to load
-  function waitForRetell(callback, maxAttempts = 10) {
-    let attempts = 0;
-    
-    function check() {
-      attempts++;
-      if (typeof Retell !== 'undefined') {
-        callback();
-      } else if (attempts < maxAttempts) {
-        console.log('Waiting for Retell SDK to load... Attempt ' + attempts);
-        setTimeout(check, 500);
-      } else {
-        console.error('Failed to load Retell SDK after ' + maxAttempts + ' attempts');
-      }
+  <style>
+    #retell-call-widget {
+      margin: 20px 0;
+      min-height: 44px;
     }
-    
-    check();
-  }
+    .retell-call-button {
+      background-color: #2563eb;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-family: system, -apple-system, sans-serif;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.2s;
+      min-width: 150px;
+      text-decoration: none;
+    }
+    .retell-call-button:hover {
+      background-color: #1d4ed8;
+    }
+  </style>
 
-  // Initialize the widget
-  waitForRetell(function() {
-    try {
-      console.log('Initializing Retell widget...');
-      const widget = Retell.widget.createCallWidget({
-        containerId: 'retell-call-widget',
-        accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
-        renderButton: true,
-        buttonConfig: {
-          text: 'Connect to Agent'
-        },
-        styles: {
-          button: 'retell-call-button'
+  <script>
+    // Wait for DOM to be ready
+    document.addEventListener('DOMContentLoaded', function() {
+      let retellCheckInterval = setInterval(function() {
+        if (typeof Retell !== 'undefined') {
+          clearInterval(retellCheckInterval);
+          initializeWidget();
         }
-      });
-      
-      widget.mount();
-      console.log('Retell widget initialized successfully');
-    } catch (error) {
-      console.error('Error initializing Retell widget:', error);
-    }
-  });
-</script>`.trim();
+      }, 100);
+
+      function initializeWidget() {
+        try {
+          console.log('Initializing Retell widget...');
+          const widget = Retell.widget.createCallWidget({
+            containerId: 'retell-call-widget',
+            accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
+            renderButton: true,
+            buttonConfig: {
+              text: 'Connect to Agent'
+            },
+            styles: {
+              button: 'retell-call-button'
+            }
+          });
+          
+          widget.mount();
+          console.log('Retell widget initialized successfully');
+        } catch (error) {
+          console.error('Error initializing Retell widget:', error);
+        }
+      }
+    });
+  </script>
+</body>
+</html>`.trim();
 
   const handleCopyCode = async () => {
     try {
