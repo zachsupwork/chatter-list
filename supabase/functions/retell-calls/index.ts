@@ -26,7 +26,7 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    // Base Retell API URL
+    // Base Retell API URL - Make sure we use v2
     const RETELL_API_BASE = 'https://api.retellai.com/v2';
 
     // Get the action and params from the request body
@@ -37,29 +37,42 @@ serve(async (req) => {
 
     switch (action) {
       case 'listPhoneNumbers': {
-        const url = `${RETELL_API_BASE}/list-phone-numbers`;
-        console.log('Making request to:', url);
-        response = await fetch(url, {
-          method: 'GET',
-          headers,
-        });
-        break;
-      }
-
-      case 'listCalls': {
-        const { limit = 50, pagination_key } = params;
-        const url = new URL(`${RETELL_API_BASE}/list-calls`);
-        if (pagination_key) {
-          url.searchParams.append('pagination_key', pagination_key);
-        }
-        url.searchParams.append('limit', limit.toString());
-        
+        const url = new URL(`${RETELL_API_BASE}/phone-numbers`);
         console.log('Making request to:', url.toString());
         response = await fetch(url.toString(), {
           method: 'GET',
           headers,
         });
         break;
+      }
+
+      case 'validatePhoneNumber': {
+        const { from_number } = params;
+        if (!from_number) {
+          throw new Error('Missing required parameter: from_number');
+        }
+
+        // First, check if the number exists in their phone numbers
+        const numbersResponse = await fetch(`${RETELL_API_BASE}/phone-numbers`, {
+          method: 'GET',
+          headers,
+        });
+        
+        if (!numbersResponse.ok) {
+          throw new Error(`Failed to validate phone number: ${await numbersResponse.text()}`);
+        }
+
+        const numbers = await numbersResponse.json();
+        const isValid = numbers.some(n => n.phone_number === from_number);
+        
+        if (!isValid) {
+          throw new Error('The provided from_number is not associated with your Retell account');
+        }
+
+        return new Response(JSON.stringify({ valid: true }), {
+          headers: { ...corsHeaders },
+          status: 200,
+        });
       }
 
       case 'createPhoneCall': {
@@ -69,7 +82,7 @@ serve(async (req) => {
         }
 
         console.log('Creating phone call:', { from_number, to_number });
-        response = await fetch(`${RETELL_API_BASE}/create-phone-call`, {
+        response = await fetch(`${RETELL_API_BASE}/phone-calls`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ from_number, to_number }),
@@ -78,44 +91,26 @@ serve(async (req) => {
       }
 
       case 'createBatchCall': {
-        const { from_number, tasks } = params;
+        const { from_number, tasks, name, trigger_timestamp } = params;
         if (!from_number || !tasks || !Array.isArray(tasks)) {
           throw new Error('Invalid batch call parameters');
         }
 
-        console.log('Creating batch call:', { from_number, tasks });
-        response = await fetch(`${RETELL_API_BASE}/create-batch-call`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            from_number,
-            tasks,
-          }),
-        });
-        break;
-      }
+        const payload: any = {
+          from_number,
+          tasks,
+          name,
+        };
 
-      case 'createWebCall': {
-        const { agent_id } = params;
-        if (!agent_id) {
-          throw new Error('Missing required parameter: agent_id');
+        if (trigger_timestamp) {
+          payload.trigger_timestamp = trigger_timestamp;
         }
 
-        console.log('Creating web call with agent:', agent_id);
-        response = await fetch(`${RETELL_API_BASE}/create-web-call`, {
+        console.log('Creating batch call:', payload);
+        response = await fetch(`${RETELL_API_BASE}/batch-call`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ agent_id }),
-        });
-        break;
-      }
-
-      case 'listAgents': {
-        const url = `${RETELL_API_BASE}/list-agents`;
-        console.log('Making request to:', url);
-        response = await fetch(url, {
-          method: 'GET',
-          headers,
+          body: JSON.stringify(payload),
         });
         break;
       }
