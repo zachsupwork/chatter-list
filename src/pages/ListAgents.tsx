@@ -6,14 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { MoreHorizontal, Plus, RefreshCw, AlertCircle } from "lucide-react";
+import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 
 interface Agent {
   agent_id: string;
@@ -26,7 +25,6 @@ interface Agent {
 export default function ListAgents() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -37,133 +35,53 @@ export default function ListAgents() {
   const fetchAgents = async () => {
     try {
       setIsLoading(true);
-      setIsError(false);
-      console.log('Fetching API key from Supabase...');
-      
-      const { data: secretData, error: secretError } = await supabase.functions.invoke(
+      console.log("Fetching API key from Supabase...");
+      const { data, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
         {
-          body: { action: 'getApiKey' }
+          body: {
+            action: 'getApiKey'
+          }
         }
       );
 
-      if (secretError) {
-        console.error('Error fetching API key:', secretError);
-        throw new Error('Failed to retrieve API key from Supabase');
+      if (apiKeyError || !data?.RETELL_API_KEY) {
+        console.error("Error fetching API key:", apiKeyError);
+        throw new Error("Failed to fetch API key");
       }
 
-      if (!secretData?.RETELL_API_KEY) {
-        console.error('No API key found in response');
-        throw new Error('No API key found in response');
-      }
-
-      console.log('Fetching agents data from Retell API...');
-      const response = await fetch('https://api.retellai.com/v2/list-agents', {
+      console.log("API key retrieved successfully");
+      console.log("Making request to Retell API...");
+      
+      const response = await fetch("https://api.retellai.com/list-agents", {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${secretData.RETELL_API_KEY}`,
-          'Content-Type': 'application/json'
+          "Authorization": `Bearer ${data.RETELL_API_KEY}`,
+          "Content-Type": "application/json"
         }
       });
 
+      const responseText = await response.text();
+      console.log("Raw API Response:", responseText);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('API response not ok:', response.status, errorData);
-        throw new Error(`API request failed: ${errorData.message || response.statusText}`);
+        console.error("Retell API error:", response.status, responseText);
+        throw new Error(`Failed to fetch agents: ${response.status} ${responseText}`);
       }
 
-      const data = await response.json();
-      console.log('Received agents data:', data);
-      
-      const agentsData = Array.isArray(data) ? data : data?.agents ? data.agents : [];
+      const agentsData = JSON.parse(responseText);
+      console.log("Agents fetched successfully:", agentsData);
       setAgents(agentsData);
-      setIsError(false);
     } catch (error: any) {
       console.error("Error in fetchAgents:", error);
-      setIsError(true);
       toast({
         variant: "destructive",
-        title: "Error loading agents",
+        title: "Error",
         description: error.message || "Failed to fetch agents",
       });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const renderTableContent = () => {
-    if (isError) {
-      return (
-        <TableRow>
-          <TableCell colSpan={6} className="text-center py-8">
-            <div className="flex flex-col items-center gap-4">
-              <AlertCircle className="h-10 w-10 text-destructive" />
-              <p className="text-muted-foreground">Failed to load agents</p>
-              <Button onClick={fetchAgents} variant="outline" size="sm">
-                Try again
-              </Button>
-            </div>
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    if (isLoading) {
-      return Array(3).fill(0).map((_, index) => (
-        <TableRow key={index}>
-          {Array(6).fill(0).map((_, cellIndex) => (
-            <TableCell key={cellIndex}>
-              <Skeleton className="h-4 w-full" />
-            </TableCell>
-          ))}
-        </TableRow>
-      ));
-    }
-
-    if (agents.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={6} className="text-center py-8">
-            <div className="flex flex-col items-center gap-4">
-              <p className="text-muted-foreground">No agents found</p>
-              <Button onClick={() => navigate('/create-agent')} variant="outline" size="sm">
-                Create your first agent
-              </Button>
-            </div>
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    return agents.map((agent) => (
-      <TableRow key={agent.agent_id}>
-        <TableCell>{agent.agent_id}</TableCell>
-        <TableCell>{agent.agent_name || "N/A"}</TableCell>
-        <TableCell>{agent.voice_id}</TableCell>
-        <TableCell>{agent.language}</TableCell>
-        <TableCell>{agent.voice_model || "Default"}</TableCell>
-        <TableCell>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/agents/${agent.agent_id}`)}>
-                View Details
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate(`/create-web-call/${agent.agent_id}`)}>
-                Create Web Call
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/create-call')}>
-                Create Phone Call
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </TableCell>
-      </TableRow>
-    ));
   };
 
   return (
@@ -202,21 +120,61 @@ export default function ListAgents() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Agent ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Voice ID</TableHead>
-                <TableHead>Language</TableHead>
-                <TableHead>Voice Model</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {renderTableContent()}
-            </TableBody>
-          </Table>
+          {isLoading ? (
+            <div className="text-center py-4">Loading agents...</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Agent ID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Voice ID</TableHead>
+                  <TableHead>Language</TableHead>
+                  <TableHead>Voice Model</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {agents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-4">
+                      No agents found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  agents.map((agent) => (
+                    <TableRow key={agent.agent_id}>
+                      <TableCell>{agent.agent_id}</TableCell>
+                      <TableCell>{agent.agent_name || "N/A"}</TableCell>
+                      <TableCell>{agent.voice_id}</TableCell>
+                      <TableCell>{agent.language}</TableCell>
+                      <TableCell>{agent.voice_model || "Default"}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/agents/${agent.agent_id}`)}>
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/create-web-call/${agent.agent_id}`)}>
+                              Create Web Call
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate('/create-call')}>
+                              Create Phone Call
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
