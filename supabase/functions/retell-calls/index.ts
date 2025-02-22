@@ -1,4 +1,5 @@
-import { serve } from 'https://deno.fresh.run/std@0.168.0/http/server.ts'
+
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { Retell } from 'npm:retell-client-js-sdk@2.0.5'
 import { corsHeaders } from '../_shared/cors.ts'
 
@@ -46,9 +47,12 @@ serve(async (req) => {
       }
 
       case 'createPhoneCall': {
-        const { phone_number, agent_id } = params
-        console.log('Creating phone call for agent:', agent_id)
-        const createCallResponse = await client.phoneCall.create(phone_number, agent_id)
+        const { from_number, to_number } = params
+        console.log('Creating phone call from:', from_number, 'to:', to_number)
+        const createCallResponse = await client.phoneCall.create({
+          from_number,
+          to_number,
+        })
         console.log('Phone call created successfully:', createCallResponse)
         return new Response(JSON.stringify(createCallResponse), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
