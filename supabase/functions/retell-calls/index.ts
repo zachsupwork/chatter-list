@@ -38,38 +38,74 @@ serve(async (req) => {
     let body;
 
     switch (action) {
-      case 'getApiKey':
-        return new Response(
-          JSON.stringify({ RETELL_API_KEY }),
-          { headers: corsHeaders }
-        );
+      case 'createWebCall':
+        endpoint = '/create-web-call';
+        method = 'POST';
+        body = {
+          agent_id: params.agent_id,
+          metadata: params.metadata,
+          retell_llm_dynamic_variables: params.retell_llm_dynamic_variables,
+        };
+        break;
+
+      case 'createPhoneCall':
+        endpoint = '/create-phone-call';
+        method = 'POST';
+        body = {
+          from_number: params.from_number,
+          to_number: params.to_number,
+          metadata: params.metadata,
+          retell_llm_dynamic_variables: params.retell_llm_dynamic_variables,
+        };
+        break;
+
+      case 'createBatchCall':
+        endpoint = '/create-batch-call';
+        method = 'POST';
+        body = {
+          from_number: params.from_number,
+          tasks: params.tasks,
+          metadata: params.metadata,
+          retell_llm_dynamic_variables: params.retell_llm_dynamic_variables,
+        };
+        break;
 
       case 'listCalls':
-        endpoint = '/calls';  // Updated endpoint
+        endpoint = '/calls';
         method = 'GET';
-        // Convert params to URL search params
-        const searchParams = new URLSearchParams();
-        if (params.limit) searchParams.append('limit', params.limit.toString());
-        if (params.sort_order) searchParams.append('sort_order', params.sort_order);
-        if (params.pagination_key) searchParams.append('pagination_key', params.pagination_key);
-        endpoint = `${endpoint}?${searchParams.toString()}`;
+        if (params.filter_criteria || params.sort_order || params.limit || params.pagination_key) {
+          const searchParams = new URLSearchParams();
+          if (params.filter_criteria) {
+            Object.entries(params.filter_criteria).forEach(([key, value]) => {
+              if (Array.isArray(value)) {
+                value.forEach(v => searchParams.append(key, v.toString()));
+              } else if (value !== undefined) {
+                searchParams.append(key, value.toString());
+              }
+            });
+          }
+          if (params.sort_order) searchParams.append('sort_order', params.sort_order);
+          if (params.limit) searchParams.append('limit', params.limit.toString());
+          if (params.pagination_key) searchParams.append('pagination_key', params.pagination_key);
+          endpoint = `${endpoint}?${searchParams.toString()}`;
+        }
         break;
 
       case 'getCall':
-        endpoint = `/calls/${params.call_id}`; // Updated endpoint
+        endpoint = `/calls/${params.call_id}`;
         method = 'GET';
         break;
 
       case 'listPhoneNumbers':
-        endpoint = '/phone-numbers'; // Updated endpoint
+        endpoint = '/phone-numbers';
         method = 'GET';
         break;
 
       case 'getPhoneNumber':
-        endpoint = `/phone-numbers/${params.phone_number}`; // Updated endpoint
+        endpoint = `/phone-numbers/${params.phone_number}`;
         method = 'GET';
         break;
-        
+
       default:
         throw new Error(`Unsupported action: ${action}`);
     }
