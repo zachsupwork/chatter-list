@@ -29,6 +29,7 @@ const CreateWebCall = () => {
   const [copied, setCopied] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const widgetContainerRef = useRef<HTMLDivElement>(null);
+  const [widgetInitialized, setWidgetInitialized] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -84,31 +85,53 @@ const CreateWebCall = () => {
   }, [agentId, toast]);
 
   useEffect(() => {
-    if (accessToken && widgetContainerRef.current) {
-      // Load Retell SDK script
-      const script = document.createElement('script');
-      script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
-      script.async = true;
-      script.onload = () => {
-        if (window.Retell && accessToken) {
-          try {
-            const widget = new window.Retell().widget.createCallWidget({
-              containerId: 'retell-call-widget',
-              accessToken: accessToken
+    if (accessToken && widgetContainerRef.current && !widgetInitialized) {
+      const initializeWidget = async () => {
+        try {
+          // Load Retell SDK script if not already loaded
+          if (!window.Retell) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
+            script.async = true;
+            await new Promise((resolve, reject) => {
+              script.onload = resolve;
+              script.onerror = reject;
+              document.body.appendChild(script);
             });
-            console.log('Widget initialized:', widget);
-          } catch (err) {
-            console.error('Error initializing widget:', err);
           }
+
+          // Initialize the widget
+          console.log('Initializing widget with token:', accessToken);
+          const widget = new window.Retell().widget.createCallWidget({
+            containerId: 'retell-call-widget',
+            accessToken: accessToken,
+          });
+
+          console.log('Widget initialized successfully:', widget);
+          setWidgetInitialized(true);
+
+        } catch (err) {
+          console.error('Error initializing widget:', err);
+          toast({
+            variant: "destructive",
+            title: "Error initializing call widget",
+            description: "Failed to load the call widget. Please try again.",
+          });
         }
       };
-      document.body.appendChild(script);
+
+      initializeWidget();
 
       return () => {
-        document.body.removeChild(script);
+        setWidgetInitialized(false);
+        // Remove the script tag if it exists
+        const scriptTag = document.querySelector('script[src="https://cdn.retellai.com/sdk/web-sdk.js"]');
+        if (scriptTag) {
+          document.body.removeChild(scriptTag);
+        }
       };
     }
-  }, [accessToken]);
+  }, [accessToken, widgetInitialized, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,6 +158,7 @@ const CreateWebCall = () => {
 
       setAccessToken(data.access_token);
       setShowCodeSnippet(true);
+      setWidgetInitialized(false); // Reset widget state for re-initialization
 
       toast({
         title: "Web call created successfully",
