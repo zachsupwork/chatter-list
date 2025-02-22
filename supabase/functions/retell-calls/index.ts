@@ -46,10 +46,9 @@ serve(async (req) => {
 
       case 'listPhoneNumbers': {
         console.log('Fetching phone numbers...');
-        response = await fetch(`${RETELL_API_BASE}/list-phone-numbers`, {
-          method: 'POST',
+        response = await fetch(`${RETELL_API_BASE}/get-phone-number`, {
+          method: 'GET',
           headers,
-          body: JSON.stringify({}) // Empty body for default list
         });
         break;
       }
@@ -72,16 +71,15 @@ serve(async (req) => {
         }
 
         response = await fetch(`${RETELL_API_BASE}/list-calls`, {
-          method: 'POST',
+          method: 'GET',
           headers,
-          body: JSON.stringify(requestBody)
         });
         break;
       }
 
       case 'listAgents': {
         console.log('Fetching agents...');
-        response = await fetch(`${RETELL_API_BASE}/list-agents`, {
+        response = await fetch(`${RETELL_API_BASE}/get-agents`, {
           method: 'GET',
           headers,
         });
@@ -95,8 +93,8 @@ serve(async (req) => {
         }
 
         // First, check if the number exists in their phone numbers
-        const numbersResponse = await fetch(`${RETELL_API_BASE}/list-phone-numbers`, {
-          method: 'POST',
+        const numbersResponse = await fetch(`${RETELL_API_BASE}/get-phone-number`, {
+          method: 'GET',
           headers,
         });
         
@@ -124,7 +122,7 @@ serve(async (req) => {
         }
 
         console.log('Creating phone call:', { from_number, to_number });
-        response = await fetch(`${RETELL_API_BASE}/phone-calls`, {
+        response = await fetch(`${RETELL_API_BASE}/create-phone-call`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ from_number, to_number }),
@@ -149,7 +147,7 @@ serve(async (req) => {
         }
 
         console.log('Creating batch call:', payload);
-        response = await fetch(`${RETELL_API_BASE}/batch-call`, {
+        response = await fetch(`${RETELL_API_BASE}/create-batch-call`, {
           method: 'POST',
           headers,
           body: JSON.stringify(payload),
