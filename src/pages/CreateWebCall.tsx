@@ -292,8 +292,8 @@ const CreateWebCall = () => {
 </button>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Wait for the Retell SDK to load
+(function() {
+  // Wait for DOM and SDK to load
   function waitForRetell(callback, maxAttempts = 20) {
     let attempts = 0;
     const interval = setInterval(function() {
@@ -304,31 +304,35 @@ document.addEventListener('DOMContentLoaded', function() {
       } else if (attempts >= maxAttempts) {
         clearInterval(interval);
         console.error('Failed to load Retell SDK');
-        alert('Failed to load Retell SDK. Please refresh the page.');
+        const button = document.getElementById('start-call-button');
+        if (button) {
+          button.textContent = 'Error: SDK not loaded';
+          button.disabled = true;
+        }
       }
     }, 100);
   }
 
   let retellClient = null;
   let isInitializing = false;
-  const button = document.getElementById('start-call-button');
-  
-  if (!button) {
-    console.error('Call button not found');
-    return;
-  }
 
   async function checkMicrophonePermission() {
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Media devices API not available");
-      }
-      
       if (!window.isSecureContext) {
-        throw new Error("Secure context (HTTPS) required");
+        throw new Error("HTTPS required for microphone access");
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Microphone API not available");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       stream.getTracks().forEach(track => track.stop());
       return true;
     } catch (err) {
@@ -337,56 +341,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  async function cleanup() {
+    if (retellClient) {
+      try {
+        retellClient.stopCall();
+      } catch (err) {
+        console.error('Error stopping call:', err);
+      }
+      retellClient = null;
+    }
+    isInitializing = false;
+  }
+
   async function startCall() {
-    if (isInitializing) return;
+    const button = document.getElementById('start-call-button');
+    if (!button || isInitializing) return;
     
     try {
       isInitializing = true;
       button.disabled = true;
-      button.textContent = 'Connecting...';
+      button.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 8px;">Connecting... <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></span>';
+
+      await cleanup();
 
       const hasMicPermission = await checkMicrophonePermission();
       if (!hasMicPermission) {
-        throw new Error('Microphone access is required.');
-      }
-
-      if (retellClient) {
-        retellClient.stopCall();
-        retellClient = null;
+        throw new Error('Please allow microphone access and ensure no other apps are using it');
       }
 
       retellClient = new RetellWebClient();
-      console.log('RetellWebClient created');
 
       retellClient.on('call_started', () => {
-        console.log('Call started successfully');
-        button.textContent = 'End Call';
+        console.log('Call started');
+        button.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>End Call</span>';
         button.disabled = false;
+        button.style.backgroundColor = '#dc2626';
       });
 
       retellClient.on('call_connecting', () => {
-        console.log('Call is connecting...');
+        console.log('Call connecting');
         isInitializing = true;
       });
 
       retellClient.on('call_ended', () => {
         console.log('Call ended');
-        button.textContent = 'Start Call';
+        button.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Start Call</span>';
         button.disabled = false;
-        isInitializing = false;
-        retellClient = null;
+        button.style.backgroundColor = '#2563eb';
+        cleanup();
       });
 
       retellClient.on('error', (error) => {
         console.error('Call error:', error);
-        button.textContent = 'Start Call';
+        button.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Start Call</span>';
         button.disabled = false;
-        isInitializing = false;
-        if (retellClient) {
-          retellClient.stopCall();
-          retellClient = null;
-        }
+        button.style.backgroundColor = '#2563eb';
         alert(error.message || 'Call error occurred');
+        cleanup();
       });
 
       await retellClient.startCall({
@@ -396,28 +407,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     } catch (error) {
       console.error('Error starting call:', error);
-      button.textContent = 'Start Call';
+      button.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Start Call</span>';
       button.disabled = false;
-      isInitializing = false;
-      if (retellClient) {
-        retellClient.stopCall();
-        retellClient = null;
-      }
+      button.style.backgroundColor = '#2563eb';
       alert(error.message || 'Failed to start call');
+      cleanup();
     }
   }
 
   function endCall() {
-    if (retellClient) {
-      retellClient.stopCall();
-      retellClient = null;
-      button.textContent = 'Start Call';
-      button.disabled = false;
-      isInitializing = false;
-    }
+    cleanup();
   }
 
+  // Initialize when everything is loaded
   waitForRetell(() => {
+    const button = document.getElementById('start-call-button');
+    if (!button) {
+      console.error('Call button not found');
+      return;
+    }
+
     button.addEventListener('click', function() {
       if (!retellClient) {
         startCall();
@@ -425,8 +434,13 @@ document.addEventListener('DOMContentLoaded', function() {
         endCall();
       }
     });
+
+    // Add keyframe animation for the loading spinner
+    const style = document.createElement('style');
+    style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(style);
   });
-});
+})();
 </script>`.trim();
 
   const handleCopyCode = async () => {
