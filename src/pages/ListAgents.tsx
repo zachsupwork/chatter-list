@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { MoreHorizontal, Plus, RefreshCw, AlertCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +40,6 @@ export default function ListAgents() {
       setIsError(false);
       console.log('Fetching API key from Supabase...');
       
-      // First get the API key securely from Supabase
       const { data: secretData, error: secretError } = await supabase.functions.invoke(
         'retell-calls',
         {
@@ -47,8 +47,14 @@ export default function ListAgents() {
         }
       );
 
-      if (secretError || !secretData?.RETELL_API_KEY) {
-        throw new Error('Could not retrieve API key');
+      if (secretError) {
+        console.error('Error fetching API key:', secretError);
+        throw new Error('Failed to retrieve API key from Supabase');
+      }
+
+      if (!secretData?.RETELL_API_KEY) {
+        console.error('No API key found in response');
+        throw new Error('No API key found in response');
       }
 
       console.log('Fetching agents data from Retell API...');
@@ -61,16 +67,15 @@ export default function ListAgents() {
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API response not ok:', response.status, errorData);
+        throw new Error(`API request failed: ${errorData.message || response.statusText}`);
       }
 
       const data = await response.json();
       console.log('Received agents data:', data);
       
-      // Handle both array and object responses from the API
-      const agentsData = Array.isArray(data) ? data : 
-                        data?.agents ? data.agents : [];
-      
+      const agentsData = Array.isArray(data) ? data : data?.agents ? data.agents : [];
       setAgents(agentsData);
       setIsError(false);
     } catch (error: any) {
@@ -78,7 +83,7 @@ export default function ListAgents() {
       setIsError(true);
       toast({
         variant: "destructive",
-        title: "Error",
+        title: "Error loading agents",
         description: error.message || "Failed to fetch agents",
       });
     } finally {
@@ -92,6 +97,7 @@ export default function ListAgents() {
         <TableRow>
           <TableCell colSpan={6} className="text-center py-8">
             <div className="flex flex-col items-center gap-4">
+              <AlertCircle className="h-10 w-10 text-destructive" />
               <p className="text-muted-foreground">Failed to load agents</p>
               <Button onClick={fetchAgents} variant="outline" size="sm">
                 Try again
