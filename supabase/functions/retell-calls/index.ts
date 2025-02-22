@@ -8,11 +8,6 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
-interface RetellHeaders {
-  Authorization: string;
-  'Content-Type'?: string;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -26,7 +21,7 @@ serve(async (req) => {
     }
 
     // Common headers for Retell API calls
-    const headers: RetellHeaders = {
+    const headers = {
       'Authorization': `Bearer ${RETELL_API_KEY}`,
       'Content-Type': 'application/json',
     };
@@ -41,55 +36,89 @@ serve(async (req) => {
     let response;
 
     switch (action) {
-      case 'listPhoneNumbers':
-        response = await fetch(`${RETELL_API_BASE}/list-phone-numbers`, {
+      case 'listPhoneNumbers': {
+        const url = `${RETELL_API_BASE}/list-phone-numbers`;
+        console.log('Making request to:', url);
+        response = await fetch(url, {
           method: 'GET',
           headers,
         });
         break;
+      }
 
-      case 'listCalls':
+      case 'listCalls': {
         const { limit = 50, pagination_key } = params;
-        const listCallsUrl = new URL(`${RETELL_API_BASE}/list-calls`);
+        const url = new URL(`${RETELL_API_BASE}/list-calls`);
         if (pagination_key) {
-          listCallsUrl.searchParams.append('pagination_key', pagination_key);
+          url.searchParams.append('pagination_key', pagination_key);
         }
-        listCallsUrl.searchParams.append('limit', limit.toString());
+        url.searchParams.append('limit', limit.toString());
         
-        response = await fetch(listCallsUrl.toString(), {
+        console.log('Making request to:', url.toString());
+        response = await fetch(url.toString(), {
           method: 'GET',
           headers,
         });
         break;
+      }
 
-      case 'createPhoneCall':
+      case 'createPhoneCall': {
         const { from_number, to_number } = params;
         if (!from_number || !to_number) {
           throw new Error('Missing required parameters: from_number and/or to_number');
         }
 
+        console.log('Creating phone call:', { from_number, to_number });
         response = await fetch(`${RETELL_API_BASE}/create-phone-call`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ from_number, to_number }),
         });
         break;
+      }
 
-      case 'createBatchCall':
-        const { tasks } = params;
-        if (!params.from_number || !tasks || !Array.isArray(tasks)) {
+      case 'createBatchCall': {
+        const { from_number, tasks } = params;
+        if (!from_number || !tasks || !Array.isArray(tasks)) {
           throw new Error('Invalid batch call parameters');
         }
 
+        console.log('Creating batch call:', { from_number, tasks });
         response = await fetch(`${RETELL_API_BASE}/create-batch-call`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            from_number: params.from_number,
+            from_number,
             tasks,
           }),
         });
         break;
+      }
+
+      case 'createWebCall': {
+        const { agent_id } = params;
+        if (!agent_id) {
+          throw new Error('Missing required parameter: agent_id');
+        }
+
+        console.log('Creating web call with agent:', agent_id);
+        response = await fetch(`${RETELL_API_BASE}/create-web-call`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ agent_id }),
+        });
+        break;
+      }
+
+      case 'listAgents': {
+        const url = `${RETELL_API_BASE}/list-agents`;
+        console.log('Making request to:', url);
+        response = await fetch(url, {
+          method: 'GET',
+          headers,
+        });
+        break;
+      }
 
       default:
         throw new Error(`Unsupported action: ${action}`);
