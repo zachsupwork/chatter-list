@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -191,6 +192,12 @@ const CreateWebCall = () => {
 <!-- Retell Widget Integration -->
 <!-- Add this where you want the widget to appear -->
 <div id="retell-call-widget"></div>
+<button id="start-call-button" class="retell-call-button">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+  </svg>
+  Start Call
+</button>
 
 <!-- Add these styles to your CSS -->
 <style>
@@ -220,6 +227,10 @@ const CreateWebCall = () => {
   .retell-call-button:hover {
     background-color: #1d4ed8;
   }
+  .retell-call-button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 </style>
 
 <!-- Add the Retell SDK before the closing </body> tag -->
@@ -228,54 +239,67 @@ const CreateWebCall = () => {
 <!-- Add this initialization script after the SDK -->
 <script>
   (function initializeRetellWidget() {
-    // Function to initialize the widget
-    function setupWidget() {
+    let retellClient = null;
+
+    async function startCall() {
       try {
-        console.log('[Retell] Initializing widget...');
-        const widget = Retell.widget.createCallWidget({
-          containerId: 'retell-call-widget',
+        if (!retellClient) {
+          retellClient = new Retell.RetellWebClient();
+        }
+
+        const button = document.getElementById('start-call-button');
+        button.disabled = true;
+        button.textContent = 'Connecting...';
+
+        await retellClient.startCall({
           accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
-          renderButton: true,
-          buttonConfig: {
-            text: 'Connect to Agent'
-          },
-          styles: {
-            button: 'retell-call-button'
-          }
+          captureDeviceId: 'default'
         });
+
+        button.textContent = 'End Call';
         
-        widget.mount();
-        console.log('[Retell] Widget initialized successfully');
+        // Set up event listeners
+        retellClient.on('call_started', () => {
+          console.log('Call started');
+          button.textContent = 'End Call';
+        });
+
+        retellClient.on('call_ended', () => {
+          console.log('Call ended');
+          button.disabled = false;
+          button.textContent = 'Start Call';
+          retellClient = null;
+        });
+
+        retellClient.on('error', (error) => {
+          console.error('Call error:', error);
+          button.disabled = false;
+          button.textContent = 'Start Call';
+          retellClient = null;
+        });
+
       } catch (error) {
-        console.error('[Retell] Error initializing widget:', error);
+        console.error('Error starting call:', error);
+        button.disabled = false;
+        button.textContent = 'Start Call';
       }
     }
 
-    // Check if document is already loaded
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      // Document is already ready to go
-      checkRetellAndInitialize();
-    } else {
-      document.addEventListener('DOMContentLoaded', checkRetellAndInitialize);
+    function endCall() {
+      if (retellClient) {
+        retellClient.stopCall();
+        retellClient = null;
+      }
     }
 
-    function checkRetellAndInitialize() {
-      let attempts = 0;
-      const maxAttempts = 20;
-      const interval = setInterval(() => {
-        attempts++;
-        console.log('[Retell] Checking for SDK... Attempt', attempts);
-        
-        if (typeof Retell !== 'undefined') {
-          console.log('[Retell] SDK loaded successfully');
-          clearInterval(interval);
-          setupWidget();
-        } else if (attempts >= maxAttempts) {
-          console.error('[Retell] Failed to load SDK after', maxAttempts, 'attempts');
-          clearInterval(interval);
-        }
-      }, 500);
-    }
+    // Initialize the button click handler
+    document.getElementById('start-call-button').addEventListener('click', function() {
+      if (!retellClient) {
+        startCall();
+      } else {
+        endCall();
+      }
+    });
   })();
 </script>`.trim();
 
