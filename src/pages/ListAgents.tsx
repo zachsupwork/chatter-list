@@ -38,37 +38,32 @@ export default function ListAgents() {
     try {
       setIsLoading(true);
       setIsError(false);
+      console.log('Fetching agents data...');
       
-      // Get API key from Supabase Edge Function
-      const { data: apiKeyData, error: apiKeyError } = await supabase.functions.invoke(
+      const { data, error } = await supabase.functions.invoke(
         'retell-calls',
         {
-          body: { action: 'getApiKey' }
+          body: { action: 'listAgents' }
         }
       );
 
-      if (apiKeyError || !apiKeyData?.RETELL_API_KEY) {
-        console.error("Error fetching API key:", apiKeyError);
+      if (error) {
+        console.error("Error in fetchAgents:", error);
         setIsError(true);
-        throw new Error("Failed to fetch API key. Please check your configuration.");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message || "Failed to fetch agents",
+        });
+        return;
       }
 
-      // Fetch agents from Retell API
-      const response = await fetch("https://api.retellai.com/list-agents", {
-        method: 'GET',
-        headers: {
-          "Authorization": `Bearer ${apiKeyData.RETELL_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch agents: ${response.status} ${errorText}`);
+      if (!data) {
+        throw new Error('No data received from the API');
       }
 
-      const agentsData = await response.json();
-      setAgents(agentsData);
+      console.log('Received agents data:', data);
+      setAgents(Array.isArray(data) ? data : []);
       setIsError(false);
     } catch (error: any) {
       console.error("Error in fetchAgents:", error);

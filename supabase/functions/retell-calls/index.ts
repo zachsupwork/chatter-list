@@ -14,16 +14,40 @@ serve(async (req) => {
   }
 
   try {
-    const { action } = await req.json()
+    const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
+    if (!RETELL_API_KEY) {
+      throw new Error('RETELL_API_KEY not found in environment variables')
+    }
 
-    // Get API key action
+    const { action } = await req.json()
+    console.log('Processing action:', action)
+
     if (action === 'getApiKey') {
-      const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
-      if (!RETELL_API_KEY) {
-        throw new Error('RETELL_API_KEY not found in environment variables')
-      }
       return new Response(
         JSON.stringify({ RETELL_API_KEY }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
+
+    if (action === 'listAgents') {
+      const response = await fetch('https://api.retellai.com/list-agents', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${RETELL_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Retell API error: ${response.status} ${await response.text()}`)
+      }
+
+      const data = await response.json()
+      return new Response(
+        JSON.stringify(data),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
