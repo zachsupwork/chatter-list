@@ -26,7 +26,7 @@ serve(async (req) => {
       console.log('Fetching agents from Retell API...')
       
       try {
-        const response = await fetch('https://api.retellai.com/v2/agents', {
+        const response = await fetch('https://api.retellai.com/v2/list-agents', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${RETELL_API_KEY}`,
