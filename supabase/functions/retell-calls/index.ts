@@ -1,13 +1,12 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
-// Define CORS headers for browser compatibility
+const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action } = await req.json()
+    const { action, limit = 50 } = await req.json()
 
     switch (action) {
       case 'getApiKey':
@@ -25,8 +24,33 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
+      case 'listCalls':
+        console.log('Fetching calls with Retell API...')
+        const response = await fetch("https://api.retellai.com/v2/list-calls", {
+          method: 'POST',
+          headers: {
+            "Authorization": `Bearer ${RETELL_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            limit: limit,
+            sort_order: "descending"
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Retell API returned ${response.status}: ${await response.text()}`)
+        }
+
+        const data = await response.json()
+        console.log('Successfully fetched calls data')
+        return new Response(
+          JSON.stringify({ calls: data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+
       case 'listAgents':
-        const response = await fetch("https://api.retellai.com/list-agents", {
+        const agentsResponse = await fetch("https://api.retellai.com/list-agents", {
           method: 'GET',
           headers: {
             "Authorization": `Bearer ${RETELL_API_KEY}`,
@@ -34,9 +58,9 @@ serve(async (req) => {
           }
         });
 
-        const data = await response.json()
+        const agentsData = await agentsResponse.json()
         return new Response(
-          JSON.stringify(data),
+          JSON.stringify(agentsData),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
@@ -71,4 +95,3 @@ serve(async (req) => {
     )
   }
 })
-
