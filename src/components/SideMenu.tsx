@@ -9,7 +9,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, Home, Phone, Video, List, Plus } from "lucide-react";
+import { Menu, Home, Phone, Video, List, Plus, PhoneOutgoing } from "lucide-react";
 
 const SideMenu = () => {
   const [open, setOpen] = useState(false);
@@ -20,6 +20,7 @@ const SideMenu = () => {
     { icon: Phone, label: "Create Phone Call", path: "/create-call" },
     { icon: Video, label: "Create Web Call", path: "/create-web-call" },
     { icon: Plus, label: "Create Batch Call", path: "/create-batch-call" },
+    { icon: PhoneOutgoing, label: "Create Phone Number", path: "/create-phone-number" },
     { icon: List, label: "Call History", path: "/calls" },
   ];
 
