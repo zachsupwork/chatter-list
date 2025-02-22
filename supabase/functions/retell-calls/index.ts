@@ -1,108 +1,72 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')!;
+const RETELL_API_BASE = 'https://api.retellai.com/';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-  'Content-Type': 'application/json',
 };
-
-const RETELL_API_BASE = 'https://api.retellai.com/v2';
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY');
+    // Get the request payload
+    const { action, ...params } = await req.json();
+
+    // Validate API key exists
     if (!RETELL_API_KEY) {
-      throw new Error('RETELL_API_KEY not found in environment variables');
+      throw new Error('Missing RETELL_API_KEY environment variable');
     }
 
-    // Common headers for Retell API calls
-    const headers = {
-      'Authorization': `Bearer ${RETELL_API_KEY}`,
-      'Content-Type': 'application/json',
-    };
-
-    // Get the request body
-    const { action, ...params } = await req.json();
-    console.log(`Processing ${action} request with params:`, params);
-
-    let response;
     let endpoint;
     let method;
     let body;
 
     switch (action) {
-      case 'createWebCall':
-        endpoint = '/create-web-call';
+      case 'listCalls':
+        endpoint = '/v2/list-calls';
         method = 'POST';
         body = {
-          agent_id: params.agent_id,
-          metadata: params.metadata,
-          retell_llm_dynamic_variables: params.retell_llm_dynamic_variables,
+          sort_order: params.sort_order || 'descending',
+          limit: params.limit || 50,
+          filter_criteria: params.filter_criteria || {}
         };
         break;
 
+      case 'getCall':
+        endpoint = `/v2/get-call/${params.call_id}`;
+        method = 'GET';
+        break;
+
       case 'createPhoneCall':
-        endpoint = '/create-phone-call';
+        endpoint = '/v2/create-phone-call';
         method = 'POST';
         body = {
           from_number: params.from_number,
           to_number: params.to_number,
+          agent_id: params.agent_id,
           metadata: params.metadata,
-          retell_llm_dynamic_variables: params.retell_llm_dynamic_variables,
         };
         break;
 
       case 'createBatchCall':
-        endpoint = '/create-batch-call';
+        endpoint = '/v2/create-batch-call';
         method = 'POST';
         body = {
           from_number: params.from_number,
           tasks: params.tasks,
           metadata: params.metadata,
-          retell_llm_dynamic_variables: params.retell_llm_dynamic_variables,
         };
         break;
 
-      case 'listCalls':
-        endpoint = '/calls';
-        method = 'GET';
-        if (params.filter_criteria || params.sort_order || params.limit || params.pagination_key) {
-          const searchParams = new URLSearchParams();
-          if (params.filter_criteria) {
-            Object.entries(params.filter_criteria).forEach(([key, value]) => {
-              if (Array.isArray(value)) {
-                value.forEach(v => searchParams.append(key, v.toString()));
-              } else if (value !== undefined) {
-                searchParams.append(key, value.toString());
-              }
-            });
-          }
-          if (params.sort_order) searchParams.append('sort_order', params.sort_order);
-          if (params.limit) searchParams.append('limit', params.limit.toString());
-          if (params.pagination_key) searchParams.append('pagination_key', params.pagination_key);
-          endpoint = `${endpoint}?${searchParams.toString()}`;
-        }
-        break;
-
-      case 'getCall':
-        endpoint = `/calls/${params.call_id}`;
-        method = 'GET';
-        break;
-
       case 'listPhoneNumbers':
-        endpoint = '/phone-numbers';
-        method = 'GET';
-        break;
-
-      case 'getPhoneNumber':
-        endpoint = `/phone-numbers/${params.phone_number}`;
+        endpoint = '/v2/list-phone-numbers';
         method = 'GET';
         break;
 
@@ -110,44 +74,58 @@ serve(async (req) => {
         throw new Error(`Unsupported action: ${action}`);
     }
 
-    console.log(`Making ${method} request to ${RETELL_API_BASE}${endpoint}`);
-    
-    const fetchOptions: RequestInit = {
+    // Construct full URL
+    const url = `${RETELL_API_BASE}${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}`;
+
+    // Prepare request options
+    const requestOptions: RequestInit = {
       method,
-      headers,
+      headers: {
+        'Authorization': `Bearer ${RETELL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
     };
 
+    // Add body for POST requests
     if (method === 'POST' && body) {
-      fetchOptions.body = JSON.stringify(body);
+      requestOptions.body = JSON.stringify(body);
     }
 
-    response = await fetch(`${RETELL_API_BASE}${endpoint}`, fetchOptions);
+    // Make request to Retell API
+    const response = await fetch(url, requestOptions);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Retell API error (${response.status}):`, errorText);
-      throw new Error(`Retell API returned error ${response.status}: ${errorText}`);
+      const text = await response.text();
+      throw new Error(`Retell API returned error ${response.status}: ${text}`);
     }
 
     const data = await response.json();
-    console.log('Retell API response:', data);
-    
+
     return new Response(
       JSON.stringify(data),
-      { headers: corsHeaders }
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      },
     );
 
   } catch (error) {
-    console.error('Error processing request:', error);
+    console.error(`Error processing request:`, error);
+
     return new Response(
       JSON.stringify({
-        error: error.message || 'Internal server error',
+        error: error.message,
         details: error.stack,
       }),
       {
         status: 500,
-        headers: corsHeaders
-      }
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      },
     );
   }
 });
