@@ -1,12 +1,13 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY');
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json'
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -15,173 +16,196 @@ serve(async (req) => {
   }
 
   try {
-    // Validate API key is set
-    if (!RETELL_API_KEY) {
-      throw new Error("RETELL_API_KEY is not set");
+    // Get the action from the request body
+    const { action, ...params } = await req.json();
+    console.log(`Processing ${action} request with params:`, params);
+
+    // Initialize Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Get the API key first
+    const apiKey = Deno.env.get('RETELL_API_KEY');
+    if (!apiKey) {
+      console.error('RETELL_API_KEY not found in environment variables');
+      return new Response(
+        JSON.stringify({ error: 'API key configuration error' }),
+        { status: 500, headers: corsHeaders }
+      );
     }
 
-    // Parse request body and validate action
-    const body = await req.json().catch(() => ({}));
-    const { action } = body;
-
-    if (!action) {
-      throw new Error("Action is required");
-    }
-
-    console.log(`Processing ${action} request with body:`, body);
+    // Common headers for Retell API calls
+    const retellHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    };
 
     switch (action) {
-      case 'getApiKey': {
-        return new Response(
-          JSON.stringify({ RETELL_API_KEY }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
+      case 'listPhoneNumbers':
+        try {
+          const response = await fetch('https://api.retellai.com/v2/list-phone-numbers', {
+            method: 'GET',
+            headers: retellHeaders
+          });
 
-      case 'listPhoneNumbers': {
-        const response = await fetch("https://api.retellai.com/list-phone-numbers", {
-          headers: {
-            "Authorization": `Bearer ${RETELL_API_KEY}`,
-            "Content-Type": "application/json"
+          if (!response.ok) {
+            throw new Error(`Retell API error: ${response.status}`);
           }
-        });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to fetch phone numbers: ${response.status} - ${errorText}`);
+          const data = await response.json();
+          return new Response(JSON.stringify(data), { headers: corsHeaders });
+        } catch (error) {
+          console.error('Error listing phone numbers:', error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: corsHeaders }
+          );
         }
 
-        const data = await response.json();
-        return new Response(
-          JSON.stringify(data),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
+      case 'createPhoneCall':
+        try {
+          const { from_number, to_number } = params;
 
-      case 'createPhoneCall': {
-        const { from_number, to_number } = body;
-        if (!from_number || !to_number) {
-          throw new Error("Missing required parameters: from_number and to_number are required");
+          if (!from_number || !to_number) {
+            return new Response(
+              JSON.stringify({ error: 'Missing required parameters' }),
+              { status: 400, headers: corsHeaders }
+            );
+          }
+
+          const response = await fetch('https://api.retellai.com/v2/create-phone-call', {
+            method: 'POST',
+            headers: retellHeaders,
+            body: JSON.stringify({
+              from_number,
+              to_number
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create phone call');
+          }
+
+          const data = await response.json();
+          return new Response(JSON.stringify(data), { headers: corsHeaders });
+        } catch (error) {
+          console.error('Error creating phone call:', error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: corsHeaders }
+          );
         }
 
-        const response = await fetch("https://api.retellai.com/create-phone-call", {
-          method: 'POST',
-          headers: {
-            "Authorization": `Bearer ${RETELL_API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ from_number, to_number })
-        });
+      case 'createBatchCall':
+        try {
+          const { from_number, tasks } = params;
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to create phone call: ${response.status} - ${errorText}`);
+          if (!from_number || !tasks || !Array.isArray(tasks)) {
+            return new Response(
+              JSON.stringify({ error: 'Invalid batch call parameters' }),
+              { status: 400, headers: corsHeaders }
+            );
+          }
+
+          const response = await fetch('https://api.retellai.com/v2/create-batch-call', {
+            method: 'POST',
+            headers: retellHeaders,
+            body: JSON.stringify({
+              from_number,
+              tasks
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create batch call');
+          }
+
+          const data = await response.json();
+          return new Response(JSON.stringify(data), { headers: corsHeaders });
+        } catch (error) {
+          console.error('Error creating batch call:', error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: corsHeaders }
+          );
         }
 
-        const data = await response.json();
-        return new Response(
-          JSON.stringify(data),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
+      case 'createWebCall':
+        try {
+          const { agent_id } = params;
 
-      case 'createBatchCall': {
-        const { from_number, tasks } = body;
-        if (!from_number || !Array.isArray(tasks) || tasks.length === 0) {
-          throw new Error("Missing required parameters: from_number and tasks array are required");
+          if (!agent_id) {
+            return new Response(
+              JSON.stringify({ error: 'Missing agent_id parameter' }),
+              { status: 400, headers: corsHeaders }
+            );
+          }
+
+          const response = await fetch('https://api.retellai.com/v2/create-web-call', {
+            method: 'POST',
+            headers: retellHeaders,
+            body: JSON.stringify({
+              agent_id
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create web call');
+          }
+
+          const data = await response.json();
+          return new Response(JSON.stringify(data), {
+            headers: corsHeaders,
+            status: 201 // Using 201 for successful creation
+          });
+        } catch (error) {
+          console.error('Error creating web call:', error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: corsHeaders }
+          );
         }
 
-        const calls = [];
-        let successful = 0;
-        let failed = 0;
+      case 'listCalls':
+        try {
+          const response = await fetch('https://api.retellai.com/v2/list-calls', {
+            method: 'GET',
+            headers: retellHeaders
+          });
 
-        // Create calls in sequence
-        for (const task of tasks) {
-          try {
-            const response = await fetch("https://api.retellai.com/create-phone-call", {
-              method: 'POST',
-              headers: {
-                "Authorization": `Bearer ${RETELL_API_KEY}`,
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({ 
-                from_number, 
-                to_number: task.to_number,
-              })
-            });
-
-            const data = await response.text();
-            const isJson = data.startsWith('{') || data.startsWith('[');
-            
-            if (!response.ok) {
-              console.error(`Failed to create call to ${task.to_number}: ${response.status} - ${data}`);
-              calls.push({
-                to_number: task.to_number,
-                status: 'error',
-                error: `Failed to create call: ${response.status} - ${data}`
-              });
-              failed++;
-              continue;
-            }
-
-            const parsedData = isJson ? JSON.parse(data) : { message: data };
-            calls.push({
-              to_number: task.to_number,
-              status: 'success',
-              data: parsedData
-            });
-            successful++;
-          } catch (err) {
-            console.error(`Error creating call to ${task.to_number}:`, err);
-            calls.push({
-              to_number: task.to_number,
-              status: 'error',
-              error: err.message
-            });
-            failed++;
+          if (!response.ok) {
+            throw new Error(`Retell API error: ${response.status}`);
           }
+
+          const data = await response.json();
+          return new Response(JSON.stringify(data), { headers: corsHeaders });
+        } catch (error) {
+          console.error('Error listing calls:', error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: corsHeaders }
+          );
         }
-
-        return new Response(
-          JSON.stringify({
-            batch_call_id: crypto.randomUUID(),
-            calls: calls,
-            summary: {
-              total: calls.length,
-              successful,
-              failed
-            }
-          }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
 
       default:
-        throw new Error(`Unsupported action: ${action}`);
+        return new Response(
+          JSON.stringify({ error: `Unsupported action: ${action}` }),
+          { status: 400, headers: corsHeaders }
+        );
     }
   } catch (error) {
-    console.error('Error in edge function:', error);
+    console.error('Error processing request:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error.stack 
+        error: 'Internal server error', 
+        details: error.message 
       }),
-      { 
-        status: 400, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
+      { status: 500, headers: corsHeaders }
     );
   }
 });
