@@ -185,12 +185,6 @@ const CreateWebCall = () => {
       await client.startCall({
         accessToken: accessToken,
         captureDeviceId: "default",
-        enableVAD: true,
-        vadOptions: {
-          vadThreshold: 0.5,
-          vadAutoThreshold: true,
-          vadAutoThresholdBias: 0,
-        },
       });
 
     } catch (err: any) {
