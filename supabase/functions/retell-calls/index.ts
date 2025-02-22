@@ -49,77 +49,14 @@ serve(async (req) => {
           }
         });
 
-        const data = await response.text();
-        console.log('Retell API response (listPhoneNumbers):', response.status, data);
-
         if (!response.ok) {
-          throw new Error(`Failed to fetch phone numbers: ${response.status} - ${data}`);
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch phone numbers: ${response.status} - ${errorText}`);
         }
 
+        const data = await response.json();
         return new Response(
-          data,
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
-
-      case 'listCalls': {
-        const { limit = 50 } = body;
-        
-        const response = await fetch("https://api.retellai.com/v2/list-calls", {
-          method: 'POST',
-          headers: {
-            "Authorization": `Bearer ${RETELL_API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ limit })
-        });
-
-        const responseText = await response.text();
-        console.log('Retell API response (listCalls):', response.status, responseText);
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch calls: ${response.status} - ${responseText}`);
-        }
-
-        // Try to parse the response as JSON, if it fails return error
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (e) {
-          console.error('Failed to parse Retell API response:', e);
-          throw new Error('Invalid response from Retell API');
-        }
-
-        // Ensure we're returning the expected structure
-        return new Response(
-          JSON.stringify({ calls: Array.isArray(data) ? data : [] }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
-
-      case 'listAgents': {
-        const response = await fetch("https://api.retellai.com/list-agents", {
-          headers: {
-            "Authorization": `Bearer ${RETELL_API_KEY}`,
-            "Content-Type": "application/json"
-          }
-        });
-
-        const data = await response.text();
-        console.log('Retell API response (listAgents):', response.status, data);
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch agents: ${response.status} - ${data}`);
-        }
-
-        return new Response(
-          data,
+          JSON.stringify(data),
           { 
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -142,15 +79,14 @@ serve(async (req) => {
           body: JSON.stringify({ from_number, to_number })
         });
 
-        const data = await response.text();
-        console.log('Retell API response (createPhoneCall):', response.status, data);
-
         if (!response.ok) {
-          throw new Error(`Failed to create phone call: ${response.status} - ${data}`);
+          const errorText = await response.text();
+          throw new Error(`Failed to create phone call: ${response.status} - ${errorText}`);
         }
 
+        const data = await response.json();
         return new Response(
-          data,
+          JSON.stringify(data),
           { 
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -159,14 +95,14 @@ serve(async (req) => {
       }
 
       case 'createBatchCall': {
-        const { from_number, tasks, trigger_timestamp } = body;
+        const { from_number, tasks } = body;
         if (!from_number || !Array.isArray(tasks) || tasks.length === 0) {
           throw new Error("Missing required parameters: from_number and tasks array are required");
         }
 
-        // Store batch call details for tracking
-        const batchCallId = crypto.randomUUID();
         const calls = [];
+        let successful = 0;
+        let failed = 0;
 
         // Create calls in sequence
         for (const task of tasks) {
@@ -180,14 +116,12 @@ serve(async (req) => {
               body: JSON.stringify({ 
                 from_number, 
                 to_number: task.to_number,
-                // If specified, schedule the call for later
-                trigger_timestamp: trigger_timestamp || undefined
               })
             });
 
             const data = await response.text();
-            console.log('Retell API response (createBatchCall - single call):', response.status, data);
-
+            const isJson = data.startsWith('{') || data.startsWith('[');
+            
             if (!response.ok) {
               console.error(`Failed to create call to ${task.to_number}: ${response.status} - ${data}`);
               calls.push({
@@ -195,14 +129,17 @@ serve(async (req) => {
                 status: 'error',
                 error: `Failed to create call: ${response.status} - ${data}`
               });
+              failed++;
               continue;
             }
 
+            const parsedData = isJson ? JSON.parse(data) : { message: data };
             calls.push({
               to_number: task.to_number,
               status: 'success',
-              data: JSON.parse(data)
+              data: parsedData
             });
+            successful++;
           } catch (err) {
             console.error(`Error creating call to ${task.to_number}:`, err);
             calls.push({
@@ -210,50 +147,20 @@ serve(async (req) => {
               status: 'error',
               error: err.message
             });
+            failed++;
           }
         }
 
         return new Response(
           JSON.stringify({
-            batch_call_id: batchCallId,
+            batch_call_id: crypto.randomUUID(),
             calls: calls,
             summary: {
               total: calls.length,
-              successful: calls.filter(c => c.status === 'success').length,
-              failed: calls.filter(c => c.status === 'error').length
+              successful,
+              failed
             }
           }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
-
-      case 'createWebCall': {
-        const { agent_id } = body;
-        if (!agent_id) {
-          throw new Error("Missing required parameter: agent_id");
-        }
-
-        const response = await fetch("https://api.retellai.com/v2/create-web-call", {
-          method: 'POST',
-          headers: {
-            "Authorization": `Bearer ${RETELL_API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ agent_id })
-        });
-
-        const data = await response.text();
-        console.log('Retell API response (createWebCall):', response.status, data);
-
-        if (!response.ok) {
-          throw new Error(`Failed to create web call: ${response.status} - ${data}`);
-        }
-
-        return new Response(
-          data,
           { 
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" } 
