@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +20,7 @@ const CreateWebCall = () => {
   const [fetchingAgents, setFetchingAgents] = useState(!agentId);
   const [showCodeSnippet, setShowCodeSnippet] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -30,7 +30,6 @@ const CreateWebCall = () => {
         try {
           setFetchingAgents(true);
           
-          // First get the API key
           const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
             'retell-calls',
             {
@@ -44,7 +43,6 @@ const CreateWebCall = () => {
             throw new Error("Failed to fetch API key");
           }
 
-          // Then fetch the agents
           const { data: agentsData, error: agentsError } = await supabase.functions.invoke(
             'retell-calls',
             {
@@ -96,17 +94,20 @@ const CreateWebCall = () => {
         throw error;
       }
 
-      if (!data || !data.call_id) {
+      if (!data || !data.call_id || !data.access_token) {
         throw new Error("Invalid response from server");
       }
+
+      setAccessToken(data.access_token);
+      setShowCodeSnippet(true);
 
       toast({
         title: "Web call created successfully",
         description: `Call ID: ${data.call_id}`,
       });
 
-      setShowCodeSnippet(true);
-      navigate(`/calls/${data.call_id}`);
+      // We'll keep the user on this page now so they can test the call
+      // navigate(`/calls/${data.call_id}`);
     } catch (err: any) {
       console.error('Error creating web call:', err);
       toast({
@@ -119,22 +120,38 @@ const CreateWebCall = () => {
     }
   };
 
-  const codeSnippet = `
+  const embedCodeSnippet = `
+<!-- Add this to your HTML -->
+<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+
+<script>
 // Initialize the Retell SDK
 const client = new Retell({
   apiKey: 'YOUR_RETELL_API_KEY'
 });
 
 // Create a web call
-const webCallResponse = await client.call.createWebCall({ 
-  agent_id: '${selectedAgentId}'
-});
+async function createCall() {
+  const webCallResponse = await client.call.createWebCall({ 
+    agent_id: '${selectedAgentId}'
+  });
+  
+  // Initialize the call widget
+  const widget = client.widget.createCallWidget({
+    containerId: 'retell-call-widget',
+    accessToken: webCallResponse.access_token
+  });
+}
+</script>
 
-console.log(webCallResponse);`;
+<!-- Add this where you want the call widget to appear -->
+<div id="retell-call-widget"></div>
+<button onclick="createCall()">Start Call</button>
+  `;
 
   const handleCopyCode = async () => {
     try {
-      await navigator.clipboard.writeText(codeSnippet);
+      await navigator.clipboard.writeText(embedCodeSnippet);
       setCopied(true);
       toast({
         title: "Code copied",
@@ -223,6 +240,31 @@ console.log(webCallResponse);`;
           </CardContent>
         </Card>
 
+        {accessToken && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Video className="h-6 w-6" />
+                Test Call Widget
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="w-full h-[400px] bg-white rounded-lg border border-gray-200">
+                <div id="retell-call-widget" className="w-full h-full"></div>
+              </div>
+              <script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+              <script dangerouslySetInnerHTML={{
+                __html: `
+                  const widget = new Retell().widget.createCallWidget({
+                    containerId: 'retell-call-widget',
+                    accessToken: '${accessToken}'
+                  });
+                `
+              }} />
+            </CardContent>
+          </Card>
+        )}
+
         {showCodeSnippet && (
           <Card>
             <CardHeader>
@@ -246,11 +288,11 @@ console.log(webCallResponse);`;
                   )}
                 </Button>
                 <pre className="text-sm">
-                  <code>{codeSnippet}</code>
+                  <code>{embedCodeSnippet}</code>
                 </pre>
               </div>
               <p className="mt-4 text-sm text-gray-500">
-                Use this code snippet to integrate the web call into your application.
+                Use this code snippet to integrate the web call widget into your website. Remember to replace YOUR_RETELL_API_KEY with your actual API key.
               </p>
             </CardContent>
           </Card>
