@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -192,16 +191,55 @@ const CreateWebCall = () => {
 <!-- Add this to your HTML -->
 <script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
 
+<!-- Add the styles for the button -->
+<style>
+  .retell-call-button {
+    background-color: #2563eb;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: system, -apple-system, sans-serif;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.2s;
+  }
+  .retell-call-button:hover {
+    background-color: #1d4ed8;
+  }
+  .retell-call-button svg {
+    width: 16px;
+    height: 16px;
+  }
+  #retell-call-widget {
+    margin: 20px 0;
+  }
+</style>
+
 <!-- Add this where you want the call widget to appear -->
 <div id="retell-call-widget"></div>
 
 <script>
 const widget = Retell.widget.createCallWidget({
   containerId: 'retell-call-widget',
-  accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}'
+  accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
+  renderButton: true,
+  buttonConfig: {
+    text: 'Start Call',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.5 17.5L20.5 12.5L15.5 7.5"/><path d="M4 12.5H20"/></svg>'
+  },
+  styles: {
+    button: 'retell-call-button'
+  }
 });
+
+// Initialize the widget immediately
+widget.mount();
 </script>
-  `;
+  `.trim();
 
   const handleCopyCode = async () => {
     try {
@@ -360,7 +398,7 @@ const widget = Retell.widget.createCallWidget({
                     </pre>
                   </div>
                   <p className="mt-4 text-sm text-gray-500">
-                    Use this code snippet to integrate the web call widget into your website.
+                    Use this code snippet to integrate the web call widget into your website. The button will appear styled and ready to use.
                   </p>
                 </CardContent>
               </Card>
