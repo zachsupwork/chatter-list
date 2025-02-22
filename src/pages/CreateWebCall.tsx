@@ -188,81 +188,96 @@ const CreateWebCall = () => {
   };
 
   const embedCodeSnippet = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Retell Web Call Widget</title>
-</head>
-<body>
-  <!-- Widget container -->
-  <div id="retell-call-widget"></div>
+<!-- Retell Widget Integration -->
+<!-- Add this where you want the widget to appear -->
+<div id="retell-call-widget"></div>
 
-  <!-- Retell SDK -->
-  <script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+<!-- Add these styles to your CSS -->
+<style>
+  #retell-call-widget {
+    margin: 20px 0;
+    min-height: 44px;
+    position: relative;
+    z-index: 1000;
+  }
+  .retell-call-button {
+    background-color: #2563eb;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: system, -apple-system, sans-serif;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color 0.2s;
+    min-width: 150px;
+    text-decoration: none;
+  }
+  .retell-call-button:hover {
+    background-color: #1d4ed8;
+  }
+</style>
 
-  <style>
-    #retell-call-widget {
-      margin: 20px 0;
-      min-height: 44px;
-    }
-    .retell-call-button {
-      background-color: #2563eb;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-family: system, -apple-system, sans-serif;
-      font-size: 14px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: background-color 0.2s;
-      min-width: 150px;
-      text-decoration: none;
-    }
-    .retell-call-button:hover {
-      background-color: #1d4ed8;
-    }
-  </style>
+<!-- Add the Retell SDK before the closing </body> tag -->
+<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
 
-  <script>
-    // Wait for DOM to be ready
-    document.addEventListener('DOMContentLoaded', function() {
-      let retellCheckInterval = setInterval(function() {
-        if (typeof Retell !== 'undefined') {
-          clearInterval(retellCheckInterval);
-          initializeWidget();
-        }
-      }, 100);
-
-      function initializeWidget() {
-        try {
-          console.log('Initializing Retell widget...');
-          const widget = Retell.widget.createCallWidget({
-            containerId: 'retell-call-widget',
-            accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
-            renderButton: true,
-            buttonConfig: {
-              text: 'Connect to Agent'
-            },
-            styles: {
-              button: 'retell-call-button'
-            }
-          });
-          
-          widget.mount();
-          console.log('Retell widget initialized successfully');
-        } catch (error) {
-          console.error('Error initializing Retell widget:', error);
-        }
+<!-- Add this initialization script after the SDK -->
+<script>
+  (function initializeRetellWidget() {
+    // Function to initialize the widget
+    function setupWidget() {
+      try {
+        console.log('[Retell] Initializing widget...');
+        const widget = Retell.widget.createCallWidget({
+          containerId: 'retell-call-widget',
+          accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
+          renderButton: true,
+          buttonConfig: {
+            text: 'Connect to Agent'
+          },
+          styles: {
+            button: 'retell-call-button'
+          }
+        });
+        
+        widget.mount();
+        console.log('[Retell] Widget initialized successfully');
+      } catch (error) {
+        console.error('[Retell] Error initializing widget:', error);
       }
-    });
-  </script>
-</body>
-</html>`.trim();
+    }
+
+    // Check if document is already loaded
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      // Document is already ready to go
+      checkRetellAndInitialize();
+    } else {
+      document.addEventListener('DOMContentLoaded', checkRetellAndInitialize);
+    }
+
+    function checkRetellAndInitialize() {
+      let attempts = 0;
+      const maxAttempts = 20;
+      const interval = setInterval(() => {
+        attempts++;
+        console.log('[Retell] Checking for SDK... Attempt', attempts);
+        
+        if (typeof Retell !== 'undefined') {
+          console.log('[Retell] SDK loaded successfully');
+          clearInterval(interval);
+          setupWidget();
+        } else if (attempts >= maxAttempts) {
+          console.error('[Retell] Failed to load SDK after', maxAttempts, 'attempts');
+          clearInterval(interval);
+        }
+      }, 500);
+    }
+  })();
+</script>`.trim();
 
   const handleCopyCode = async () => {
     try {
