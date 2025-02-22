@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Agent {
   agent_id: string;
@@ -81,7 +88,20 @@ export default function ListAgents() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Agents</CardTitle>
-          <Button onClick={() => navigate('/create-agent')}>Create Agent</Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={fetchAgents}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button onClick={() => navigate('/create-agent')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Agent
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -114,12 +134,18 @@ export default function ListAgents() {
                       <TableCell>{agent.language}</TableCell>
                       <TableCell>{agent.voice_model || "Default"}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          onClick={() => navigate(`/agents/${agent.agent_id}`)}
-                        >
-                          View Details
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/agents/${agent.agent_id}`)}>
+                              View Details
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))

@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, MoreHorizontal, RefreshCw } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Agent {
   agent_id: string;
@@ -147,28 +154,53 @@ export default function AgentDetails() {
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{agent?.agent_name || "Unnamed Agent"}</CardTitle>
-          <Button variant="outline" onClick={() => navigate('/agents')}>
-            Back to Agents
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/agents')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <CardTitle>{agent?.agent_name || "Unnamed Agent"}</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={fetchAgentDetails}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate('/create-call')}>
+                  Create Call
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/create-web-call')}>
+                  Create Web Call
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {isLoading ? (
-            <div className="text-center">Loading agent details...</div>
-          ) : !agent ? (
-            <div className="text-center">Agent not found</div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              {Object.entries(agent).map(([key, value]) => (
-                <div key={key} className="space-y-1">
-                  <div className="font-medium">{key}</div>
-                  <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {renderValue(value)}
-                  </div>
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(agent).map(([key, value]) => (
+              <div key={key} className="space-y-1">
+                <div className="font-medium">{key}</div>
+                <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {renderValue(value)}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>
