@@ -22,6 +22,13 @@ serve(async (req) => {
     console.log(`Processing ${action} request`);
 
     switch (action) {
+      case 'getApiKey': {
+        return new Response(
+          JSON.stringify({ RETELL_API_KEY }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       case 'listPhoneNumbers': {
         const response = await fetch("https://api.retellai.com/list-phone-numbers", {
           headers: {
