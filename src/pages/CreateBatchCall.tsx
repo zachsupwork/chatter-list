@@ -1,10 +1,9 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,52 +19,15 @@ interface BatchCallForm {
   trigger_timestamp?: number;
 }
 
-interface PhoneNumber {
-  phone_number: string;
-  phone_number_pretty: string;
-  nickname: string | null;
-}
-
 export default function CreateBatchCall() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingNumbers, setLoadingNumbers] = useState(true);
-  const [fromNumbers, setFromNumbers] = useState<PhoneNumber[]>([]);
   const [formData, setFormData] = useState<BatchCallForm>({
     from_number: "",
     name: "",
     tasks: [{ to_number: "" }],
   });
-
-  useEffect(() => {
-    const fetchPhoneNumbers = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke(
-          'retell-calls',
-          {
-            body: {
-              action: 'listPhoneNumbers'
-            }
-          }
-        );
-
-        if (error) throw error;
-        setFromNumbers(data);
-      } catch (err: any) {
-        console.error('Error fetching phone numbers:', err);
-        toast({
-          variant: "destructive",
-          title: "Error loading phone numbers",
-          description: err.message || "Failed to load phone numbers",
-        });
-      } finally {
-        setLoadingNumbers(false);
-      }
-    };
-
-    fetchPhoneNumbers();
-  }, [toast]);
 
   const handleAddTask = () => {
     setFormData(prev => ({
@@ -153,26 +115,15 @@ export default function CreateBatchCall() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium mb-2">From Number</label>
-              <Select
+              <label className="block text-sm font-medium mb-2">From Number (E.164 format)</label>
+              <Input
+                type="text"
+                placeholder="+14157774444"
                 value={formData.from_number}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, from_number: value }))}
-              >
-                <SelectTrigger className="font-mono">
-                  <SelectValue placeholder="Select a phone number" />
-                </SelectTrigger>
-                <SelectContent>
-                  {fromNumbers.map((number) => (
-                    <SelectItem 
-                      key={number.phone_number} 
-                      value={number.phone_number}
-                      className="font-mono"
-                    >
-                      {number.nickname ? `${number.phone_number_pretty} (${number.nickname})` : number.phone_number_pretty}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(e) => setFormData(prev => ({ ...prev, from_number: e.target.value }))}
+                required
+                pattern="^\+[1-9]\d{10,14}$"
+              />
               <p className="text-sm text-gray-500 mt-1">
                 Must be a number purchased from or imported to Retell
               </p>
@@ -199,7 +150,6 @@ export default function CreateBatchCall() {
                     onChange={(e) => handleTaskChange(index, e.target.value)}
                     required
                     pattern="^\+[1-9]\d{10,14}$"
-                    className="font-mono"
                   />
                   {formData.tasks.length > 1 && (
                     <Button
@@ -234,7 +184,7 @@ export default function CreateBatchCall() {
             </div>
 
             <div className="flex gap-4">
-              <Button type="submit" disabled={isLoading || loadingNumbers}>
+              <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Creating..." : "Create Batch Call"}
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate("/calls")}>
