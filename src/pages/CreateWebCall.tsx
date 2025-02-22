@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,7 +24,6 @@ const CreateWebCall = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
-  const widgetContainerRef = useRef<HTMLDivElement>(null);
   const retellClientRef = useRef<RetellWebClient | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -81,6 +79,17 @@ const CreateWebCall = () => {
     }
   }, [agentId, toast]);
 
+  const checkMicrophonePermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      return false;
+    }
+  };
+
   const initializeCall = async () => {
     if (!accessToken) {
       toast({
@@ -93,12 +102,21 @@ const CreateWebCall = () => {
 
     try {
       setIsInitializing(true);
+
+      const hasMicPermission = await checkMicrophonePermission();
+      if (!hasMicPermission) {
+        throw new Error("Microphone access is required to start the call. Please allow microphone access and try again.");
+      }
+
       console.log('Initializing Retell Web Client with access token:', accessToken);
       
-      // Create a new instance of RetellWebClient
+      if (retellClientRef.current) {
+        retellClientRef.current.stopCall();
+        retellClientRef.current = null;
+      }
+
       retellClientRef.current = new RetellWebClient();
 
-      // Set up event listeners
       retellClientRef.current.on("call_started", () => {
         console.log("Call started successfully");
         setIsCallActive(true);
@@ -130,10 +148,12 @@ const CreateWebCall = () => {
         });
         if (retellClientRef.current) {
           retellClientRef.current.stopCall();
+          retellClientRef.current = null;
         }
       });
 
-      // Start the call with the access token
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       await retellClientRef.current.startCall({
         accessToken: accessToken,
         captureDeviceId: "default",
@@ -149,6 +169,10 @@ const CreateWebCall = () => {
         title: "Error initializing call",
         description: err.message || "Failed to start the call. Please try again.",
       });
+      if (retellClientRef.current) {
+        retellClientRef.current.stopCall();
+        retellClientRef.current = null;
+      }
     }
   };
 
@@ -156,6 +180,7 @@ const CreateWebCall = () => {
     if (retellClientRef.current) {
       console.log('Ending call...');
       retellClientRef.current.stopCall();
+      retellClientRef.current = null;
       setIsCallActive(false);
       setIsInitializing(false);
     }
@@ -205,67 +230,56 @@ const CreateWebCall = () => {
   };
 
   const embedCodeSnippet = `
-<!-- Retell Widget Integration -->
-<!-- Add this where you want the widget to appear -->
-<div id="retell-call-widget"></div>
-<button id="start-call-button" class="retell-call-button">
+<!-- Add the Retell SDK before the closing </body> tag -->
+<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+
+<!-- Add the call button wherever you want it to appear -->
+<button id="start-call-button" style="background-color: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; min-width: 150px; transition: background-color 0.2s;">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
   </svg>
   Start Call
 </button>
 
-<!-- Add these styles to your CSS -->
-<style>
-  #retell-call-widget {
-    margin: 20px 0;
-    min-height: 44px;
-    position: relative;
-    z-index: 1000;
-  }
-  .retell-call-button {
-    background-color: #2563eb;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    font-family: system, -apple-system, sans-serif;
-    font-size: 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: background-color 0.2s;
-    min-width: 150px;
-    text-decoration: none;
-  }
-  .retell-call-button:hover {
-    background-color: #1d4ed8;
-  }
-  .retell-call-button[disabled] {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-</style>
-
-<!-- Add the Retell SDK before the closing </body> tag -->
-<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
-
 <!-- Add this initialization script after the SDK -->
 <script>
-  (function initializeRetellWidget() {
+  (function() {
     let retellClient = null;
+    let isInitializing = false;
+    const button = document.getElementById('start-call-button');
+
+    async function checkMicrophonePermission() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+      } catch (err) {
+        console.error('Error accessing microphone:', err);
+        return false;
+      }
+    }
 
     async function startCall() {
+      if (isInitializing) return;
+      
       try {
-        if (!retellClient) {
-          retellClient = new Retell.RetellWebClient();
-        }
-
-        const button = document.getElementById('start-call-button');
+        isInitializing = true;
         button.disabled = true;
         button.textContent = 'Connecting...';
+
+        const hasMicPermission = await checkMicrophonePermission();
+        if (!hasMicPermission) {
+          throw new Error('Microphone access is required. Please allow microphone access and try again.');
+        }
+
+        if (retellClient) {
+          retellClient.stopCall();
+          retellClient = null;
+        }
+
+        retellClient = new Retell.RetellWebClient();
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         await retellClient.startCall({
           accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
@@ -273,31 +287,44 @@ const CreateWebCall = () => {
         });
 
         button.textContent = 'End Call';
+        button.disabled = false;
         
-        // Set up event listeners
         retellClient.on('call_started', () => {
-          console.log('Call started');
+          console.log('Call started successfully');
           button.textContent = 'End Call';
+          button.disabled = false;
         });
 
         retellClient.on('call_ended', () => {
           console.log('Call ended');
-          button.disabled = false;
           button.textContent = 'Start Call';
+          button.disabled = false;
+          isInitializing = false;
           retellClient = null;
         });
 
         retellClient.on('error', (error) => {
           console.error('Call error:', error);
-          button.disabled = false;
           button.textContent = 'Start Call';
-          retellClient = null;
+          button.disabled = false;
+          isInitializing = false;
+          if (retellClient) {
+            retellClient.stopCall();
+            retellClient = null;
+          }
+          alert(error.message || 'An error occurred during the call');
         });
 
       } catch (error) {
         console.error('Error starting call:', error);
-        button.disabled = false;
         button.textContent = 'Start Call';
+        button.disabled = false;
+        isInitializing = false;
+        if (retellClient) {
+          retellClient.stopCall();
+          retellClient = null;
+        }
+        alert(error.message || 'Failed to start the call. Please try again.');
       }
     }
 
@@ -305,11 +332,13 @@ const CreateWebCall = () => {
       if (retellClient) {
         retellClient.stopCall();
         retellClient = null;
+        button.textContent = 'Start Call';
+        button.disabled = false;
+        isInitializing = false;
       }
     }
 
-    // Initialize the button click handler
-    document.getElementById('start-call-button').addEventListener('click', function() {
+    button.addEventListener('click', function() {
       if (!retellClient) {
         startCall();
       } else {
