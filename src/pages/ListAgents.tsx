@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -53,7 +52,7 @@ export default function ListAgents() {
       }
 
       console.log('Fetching agents data from Retell API...');
-      const response = await fetch('https://api.retellai.com/agents', {
+      const response = await fetch('https://api.retellai.com/v2/list-agents', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${secretData.RETELL_API_KEY}`,
