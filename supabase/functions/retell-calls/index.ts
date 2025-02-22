@@ -18,17 +18,16 @@ serve(async (req) => {
       throw new Error("RETELL_API_KEY is not set");
     }
 
-    const { action } = await req.json();
-    console.log(`Processing ${action} request`);
+    const body = await req.json().catch(() => ({}));
+    const { action } = body;
+
+    if (!action) {
+      throw new Error("Action is required");
+    }
+
+    console.log(`Processing ${action} request with body:`, body);
 
     switch (action) {
-      case 'getApiKey': {
-        return new Response(
-          JSON.stringify({ RETELL_API_KEY }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
       case 'listPhoneNumbers': {
         const response = await fetch("https://api.retellai.com/list-phone-numbers", {
           headers: {
@@ -38,20 +37,25 @@ serve(async (req) => {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch phone numbers: ${response.statusText}`);
+          const errorText = await response.text();
+          console.error('Retell API error:', response.status, errorText);
+          throw new Error(`Failed to fetch phone numbers: ${response.status} - ${errorText}`);
         }
 
-        const phoneNumbers = await response.json();
+        const data = await response.json();
         return new Response(
-          JSON.stringify(phoneNumbers),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify(data),
+          { 
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          }
         );
       }
 
       case 'createPhoneCall': {
-        const { from_number, to_number } = await req.json();
+        const { from_number, to_number } = body;
         if (!from_number || !to_number) {
-          throw new Error("Missing required parameters");
+          throw new Error("Missing required parameters: from_number and to_number are required");
         }
 
         const response = await fetch("https://api.retellai.com/create-phone-call", {
@@ -65,13 +69,17 @@ serve(async (req) => {
 
         if (!response.ok) {
           const errorText = await response.text();
+          console.error('Retell API error:', response.status, errorText);
           throw new Error(`Failed to create phone call: ${response.status} - ${errorText}`);
         }
 
-        const callData = await response.json();
+        const data = await response.json();
         return new Response(
-          JSON.stringify(callData),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify(data),
+          { 
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          }
         );
       }
 
@@ -81,7 +89,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in edge function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack 
+      }),
       { 
         status: 400, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
