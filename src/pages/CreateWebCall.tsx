@@ -89,42 +89,51 @@ const CreateWebCall = () => {
       if (!accessToken || !widgetContainerRef.current || widgetInitialized) return;
 
       try {
-        // Load SDK if not already loaded
-        if (!window.Retell) {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
-          script.async = true;
-          await new Promise<void>((resolve, reject) => {
-            script.onload = () => resolve();
-            script.onerror = () => reject();
-            document.body.appendChild(script);
-          });
+        // Remove any existing script to avoid conflicts
+        const existingScript = document.querySelector('script[src="https://cdn.retellai.com/sdk/web-sdk.js"]');
+        if (existingScript) {
+          existingScript.remove();
         }
 
-        // Wait for a short moment to ensure the SDK is fully loaded
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Initialize widget
-        console.log('Creating widget with token:', accessToken);
+        // Load SDK if not already loaded
+        const script = document.createElement('script');
+        script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
+        script.async = true;
         
-        // Create Retell client instance first
-        const client = new window.Retell();
-        
-        // Then create the widget using the client
-        const widget = client.widget.createCallWidget({
-          containerId: 'retell-call-widget',
-          accessToken: accessToken,
+        await new Promise<void>((resolve, reject) => {
+          script.onload = () => resolve();
+          script.onerror = () => reject();
+          document.body.appendChild(script);
         });
 
-        console.log('Widget created successfully:', widget);
-        setWidgetInitialized(true);
+        // Wait for SDK to be fully loaded
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (!window.Retell) {
+          throw new Error('Retell SDK not loaded properly');
+        }
+
+        try {
+          // Initialize widget using the correct method
+          const widget = window.Retell.widget.createCallWidget({
+            containerId: 'retell-call-widget',
+            accessToken: accessToken,
+          });
+
+          console.log('Widget created successfully:', widget);
+          setWidgetInitialized(true);
+        } catch (widgetError) {
+          console.error('Error creating widget instance:', widgetError);
+          throw widgetError;
+        }
       } catch (err) {
-        console.error('Error creating widget:', err);
+        console.error('Error initializing widget:', err);
         toast({
           variant: "destructive",
           title: "Error initializing call widget",
           description: "Failed to load the call widget. Please try again.",
         });
+        setWidgetInitialized(false);
       }
     };
 
@@ -185,27 +194,15 @@ const CreateWebCall = () => {
 <!-- Add this to your HTML -->
 <script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
 
-<script>
-// Initialize the Retell SDK
-const client = new Retell();
-
-// Create a web call
-async function createCall() {
-  const webCallResponse = await client.call.createWebCall({ 
-    agent_id: '${selectedAgentId}'
-  });
-  
-  // Initialize the call widget
-  const widget = client.widget.createCallWidget({
-    containerId: 'retell-call-widget',
-    accessToken: webCallResponse.access_token
-  });
-}
-</script>
-
 <!-- Add this where you want the call widget to appear -->
 <div id="retell-call-widget"></div>
-<button onclick="createCall()">Start Call</button>
+
+<script>
+const widget = Retell.widget.createCallWidget({
+  containerId: 'retell-call-widget',
+  accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}'
+});
+</script>
   `;
 
   const handleCopyCode = async () => {
@@ -308,12 +305,11 @@ async function createCall() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="w-full h-[400px] bg-white rounded-lg border border-gray-200 relative">
+              <div className="w-full h-[400px] bg-white rounded-lg border border-gray-200 relative overflow-hidden">
                 <div 
                   id="retell-call-widget" 
                   ref={widgetContainerRef}
-                  className="w-full h-full"
-                  style={{ minHeight: '400px' }}
+                  className="w-full h-full absolute inset-0"
                 ></div>
               </div>
             </CardContent>
@@ -347,7 +343,7 @@ async function createCall() {
                 </pre>
               </div>
               <p className="mt-4 text-sm text-gray-500">
-                Use this code snippet to integrate the web call widget into your website. Remember to replace YOUR_RETELL_API_KEY with your actual API key.
+                Use this code snippet to integrate the web call widget into your website.
               </p>
             </CardContent>
           </Card>
@@ -358,4 +354,3 @@ async function createCall() {
 };
 
 export default CreateWebCall;
-
