@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -81,33 +82,53 @@ const CreateWebCall = () => {
 
   const checkMicrophonePermission = async () => {
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Media devices API not available in this browser");
-      }
-
+      // First check if we're in a secure context
       if (!window.isSecureContext) {
-        throw new Error("Microphone access requires a secure context (HTTPS or localhost)");
+        throw new Error("Microphone access requires HTTPS. Please ensure you're accessing this site via HTTPS.");
       }
 
+      // Check if the API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Media devices API is not available in this browser.");
+      }
+
+      // Check current permission status
       const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       
       if (permissionStatus.state === 'denied') {
-        throw new Error("Microphone access is blocked. Please allow access in your browser settings.");
+        throw new Error("Microphone access is blocked. Please allow access in your browser settings and ensure no other apps are using the microphone.");
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      return true;
-    } catch (err: any) {
-      console.error('Error accessing microphone:', err);
-      
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        throw new Error("Microphone access was denied. Please allow microphone access and try again.");
-      } else if (err.name === 'NotFoundError') {
-        throw new Error("No microphone found. Please connect a microphone and try again.");
-      } else {
-        throw new Error(err.message || "Failed to access microphone. Please ensure no other apps are using it.");
+      try {
+        // Try to get actual microphone access
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+        
+        // If successful, stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+      } catch (mediaError: any) {
+        console.error('Media access error:', mediaError);
+        
+        // Specific error handling for different cases
+        if (mediaError.name === 'NotAllowedError' || mediaError.name === 'PermissionDeniedError') {
+          throw new Error("Please grant microphone access when prompted and ensure no other apps are using it.");
+        } else if (mediaError.name === 'NotFoundError') {
+          throw new Error("No microphone found. Please connect a microphone and try again.");
+        } else if (mediaError.name === 'NotReadableError' || mediaError.name === 'AbortError') {
+          throw new Error("Your microphone is in use by another application. Please close other apps using the microphone.");
+        }
+        
+        throw new Error(mediaError.message || "Failed to access microphone.");
       }
+    } catch (err: any) {
+      console.error('Permission check error:', err);
+      throw err;
     }
   };
 
@@ -124,11 +145,9 @@ const CreateWebCall = () => {
     try {
       setIsInitializing(true);
 
-      const hasMicPermission = await checkMicrophonePermission();
-      if (!hasMicPermission) {
-        throw new Error("Microphone access is required to start the call.");
-      }
-
+      // Try to get microphone permission
+      await checkMicrophonePermission();
+      
       console.log('Initializing call with access token:', accessToken);
       
       if (retellClientRef.current) {
