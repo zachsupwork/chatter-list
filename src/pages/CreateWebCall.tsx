@@ -193,6 +193,9 @@ const CreateWebCall = () => {
 
 <!-- Add the styles for the button -->
 <style>
+  #retell-call-widget {
+    margin: 20px 0;
+  }
   .retell-call-button {
     background-color: #2563eb;
     color: white;
@@ -210,48 +213,63 @@ const CreateWebCall = () => {
   .retell-call-button:hover {
     background-color: #1d4ed8;
   }
-  .retell-call-button svg {
-    width: 16px;
-    height: 16px;
-  }
-  #retell-call-widget {
-    margin: 20px 0;
-  }
 </style>
 
 <!-- Add this where you want the call widget to appear -->
 <div id="retell-call-widget"></div>
 
 <script>
-// Wait for the Retell SDK to load
-window.addEventListener('load', function() {
-  if (typeof Retell !== 'undefined') {
-    initializeWidget();
-  } else {
-    // If Retell is not loaded yet, wait for it
-    const script = document.querySelector('script[src*="web-sdk.js"]');
-    script.addEventListener('load', initializeWidget);
+// Create a function to initialize the widget
+function initializeRetellWidget() {
+  if (typeof Retell === 'undefined') {
+    console.error('Retell SDK not loaded');
+    return;
   }
-});
 
-function initializeWidget() {
-  const widget = Retell.widget.createCallWidget({
-    containerId: 'retell-call-widget',
-    accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
-    renderButton: true,
-    buttonConfig: {
-      text: 'Start Call',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.5 17.5L20.5 12.5L15.5 7.5"/><path d="M4 12.5H20"/></svg>'
-    },
-    styles: {
-      button: 'retell-call-button'
-    }
-  });
+  try {
+    const widget = Retell.widget.createCallWidget({
+      containerId: 'retell-call-widget',
+      accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
+      renderButton: true,
+      buttonConfig: {
+        text: 'Connect to Agent',
+      },
+      styles: {
+        button: 'retell-call-button'
+      }
+    });
 
-  widget.mount();
+    widget.mount();
+    console.log('Retell widget initialized successfully');
+  } catch (error) {
+    console.error('Error initializing Retell widget:', error);
+  }
 }
-</script>
-`.trim();
+
+// Function to load the Retell SDK
+function loadRetellSDK() {
+  // Check if the script is already loaded
+  if (typeof Retell !== 'undefined') {
+    initializeRetellWidget();
+    return;
+  }
+
+  // Create and append the script
+  const script = document.createElement('script');
+  script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
+  script.async = true;
+  script.onload = initializeRetellWidget;
+  script.onerror = () => console.error('Failed to load Retell SDK');
+  document.body.appendChild(script);
+}
+
+// Execute when the page is ready
+if (document.readyState === 'complete') {
+  loadRetellSDK();
+} else {
+  window.addEventListener('load', loadRetellSDK);
+}
+</script>`.trim();
 
   const handleCopyCode = async () => {
     try {
