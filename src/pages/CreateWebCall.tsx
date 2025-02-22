@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2 } from "lucide-react";
+import { Video, Loader2, Code } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +18,7 @@ const CreateWebCall = () => {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetchingAgents, setFetchingAgents] = useState(true);
+  const [showCodeSnippet, setShowCodeSnippet] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -73,6 +74,7 @@ const CreateWebCall = () => {
         description: `Call ID: ${data.call_id}`,
       });
 
+      setShowCodeSnippet(true);
       navigate(`/calls/${data.call_id}`);
     } catch (err: any) {
       console.error('Error creating web call:', err);
@@ -85,6 +87,19 @@ const CreateWebCall = () => {
       setLoading(false);
     }
   };
+
+  const codeSnippet = `
+// Initialize the Retell SDK
+const client = new Retell({
+  apiKey: 'YOUR_RETELL_API_KEY'
+});
+
+// Create a web call
+const webCallResponse = await client.call.createWebCall({ 
+  agent_id: '${selectedAgentId}'
+});
+
+console.log(webCallResponse);`;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -151,6 +166,27 @@ const CreateWebCall = () => {
             </form>
           </CardContent>
         </Card>
+
+        {showCodeSnippet && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Code className="h-6 w-6" />
+                Code Snippet
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto">
+                <pre className="text-sm">
+                  <code>{codeSnippet}</code>
+                </pre>
+              </div>
+              <p className="mt-4 text-sm text-gray-500">
+                Use this code snippet to integrate the web call into your application.
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
