@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, call_id, filter_criteria, limit = 50, from_number, to_number, agent_id, name, tasks, trigger_timestamp } = await req.json()
+    const { action, call_id, filter_criteria, limit = 50, from_number, to_number, name, tasks, trigger_timestamp } = await req.json()
 
     const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
     if (!RETELL_API_KEY) {
@@ -23,6 +23,31 @@ serve(async (req) => {
     let method = 'POST'
     let body: any = {}
 
+    // First validate the phone number regardless of action type if it's provided
+    if (from_number) {
+      const validationResponse = await fetch(url + 'list-phone-numbers', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${RETELL_API_KEY}`,
+          'Content-Type': 'application/json',
+        }
+      })
+
+      if (!validationResponse.ok) {
+        throw new Error('Failed to validate phone number')
+      }
+
+      const phoneNumbers = await validationResponse.json()
+      const isValidNumber = phoneNumbers.some(
+        (phone: any) => phone.phone_number === from_number
+      )
+
+      if (!isValidNumber) {
+        throw new Error('Must be a number purchased from or imported to Retell')
+      }
+    }
+
+    // After validation, proceed with the requested action
     switch (action) {
       case 'createBatchCall':
         url += 'create-batch-call'
@@ -32,10 +57,11 @@ serve(async (req) => {
         }
         break
       case 'validatePhoneNumber':
-        // Check if number is registered with Retell
-        url += 'list-phone-numbers'
-        method = 'GET'
-        break
+        // Already validated above, just return success
+        return new Response(
+          JSON.stringify({ valid: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       case 'createPhoneCall':
         url += 'create-phone-call'
         body = { from_number, to_number }
@@ -64,7 +90,6 @@ serve(async (req) => {
       ...(method === 'GET' ? {} : { body: JSON.stringify(body) })
     })
 
-    // First check if the response is ok before trying to parse JSON
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Error response from Retell API:', errorText)
@@ -78,21 +103,6 @@ serve(async (req) => {
 
     const responseData = await response.json()
     console.log('Raw response data:', responseData)
-
-    // For validatePhoneNumber action, check if the phone number exists in the response
-    if (action === 'validatePhoneNumber') {
-      const phoneNumbers = responseData
-      const isValidNumber = phoneNumbers.some(
-        (phone: any) => phone.phone_number === from_number
-      )
-      if (!isValidNumber) {
-        throw new Error('Must be a number purchased from or imported to Retell')
-      }
-      return new Response(
-        JSON.stringify({ valid: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
 
     return new Response(
       JSON.stringify(responseData),
