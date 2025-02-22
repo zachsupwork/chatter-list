@@ -129,7 +129,7 @@ const CreateWebCall = () => {
         throw new Error("Microphone access is required to start the call.");
       }
 
-      console.log('Initializing RetellWebClient...');
+      console.log('Initializing call with access token:', accessToken);
       
       if (retellClientRef.current) {
         console.log('Cleaning up existing client...');
@@ -181,9 +181,13 @@ const CreateWebCall = () => {
 
       retellClientRef.current = client;
 
-      console.log('Starting call with access token:', accessToken);
+      console.log('Starting call with following config:', {
+        accessToken,
+        captureDeviceId: "default",
+      });
+
       await client.startCall({
-        accessToken: accessToken,
+        accessToken,
         captureDeviceId: "default",
       });
 
