@@ -251,8 +251,8 @@ const CreateWebCall = () => {
   };
 
   const embedCodeSnippet = `
-<!-- Add the Retell SDK before the closing </body> tag -->
-<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+<!-- Add the Retell SDK to the head of your HTML -->
+<script src="https://cdn.retellai.com/sdk/web-sdk.js" async defer></script>
 
 <!-- Add the call button wherever you want it to appear -->
 <button id="start-call-button" style="background-color: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; min-width: 150px; transition: background-color 0.2s;">
@@ -262,12 +262,20 @@ const CreateWebCall = () => {
   Start Call
 </button>
 
-<!-- Add this initialization script after the SDK -->
 <script>
   (function() {
     let retellClient = null;
     let isInitializing = false;
     const button = document.getElementById('start-call-button');
+    
+    // Wait for SDK to load
+    function waitForRetell(callback) {
+      if (window.Retell && window.Retell.RetellWebClient) {
+        callback();
+      } else {
+        setTimeout(() => waitForRetell(callback), 100);
+      }
+    }
 
     async function checkMicrophonePermission() {
       try {
@@ -298,9 +306,10 @@ const CreateWebCall = () => {
           retellClient = null;
         }
 
-        retellClient = new Retell.RetellWebClient();
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait for SDK to be available
+        await new Promise((resolve) => waitForRetell(resolve));
+        
+        retellClient = new window.Retell.RetellWebClient();
 
         await retellClient.startCall({
           accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
