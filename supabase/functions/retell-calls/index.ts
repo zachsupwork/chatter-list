@@ -22,7 +22,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { action, from_number, to_number, tasks } = body;
 
-    console.log(`Processing ${action} request:`, body);
+    console.log(`Processing ${action} request with body:`, body);
 
     if (!action) {
       throw new Error("Action is required");
@@ -31,13 +31,23 @@ serve(async (req) => {
     switch (action) {
       case 'listPhoneNumbers': {
         const response = await fetch("https://api.retellai.com/list-phone-numbers", {
+          method: 'GET',
           headers: {
             "Authorization": `Bearer ${RETELL_API_KEY}`,
             "Content-Type": "application/json"
           }
         });
 
-        const responseData = await response.json();
+        const responseText = await response.text();
+        console.log('Retell API response:', responseText);
+
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (err) {
+          console.error('Error parsing Retell API response:', err);
+          throw new Error(`Invalid response from Retell API: ${responseText}`);
+        }
         
         if (!response.ok) {
           throw new Error(`Failed to fetch phone numbers: ${response.status} - ${JSON.stringify(responseData)}`);
@@ -59,7 +69,7 @@ serve(async (req) => {
 
         console.log(`Creating phone call from ${from_number} to ${to_number}`);
 
-        const response = await fetch("https://api.retellai.com/create-phone-call", {
+        const response = await fetch("https://api.retellai.com/v2/create-phone-call", {
           method: 'POST',
           headers: {
             "Authorization": `Bearer ${RETELL_API_KEY}`,
@@ -68,8 +78,17 @@ serve(async (req) => {
           body: JSON.stringify({ from_number, to_number })
         });
 
-        const responseData = await response.json();
-        
+        const responseText = await response.text();
+        console.log('Retell API response:', responseText);
+
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (err) {
+          console.error('Error parsing Retell API response:', err);
+          throw new Error(`Invalid response from Retell API: ${responseText}`);
+        }
+
         if (!response.ok) {
           throw new Error(`Failed to create phone call: ${response.status} - ${JSON.stringify(responseData)}`);
         }
@@ -97,7 +116,7 @@ serve(async (req) => {
         // Create calls in sequence
         for (const task of tasks) {
           try {
-            const response = await fetch("https://api.retellai.com/create-phone-call", {
+            const response = await fetch("https://api.retellai.com/v2/create-phone-call", {
               method: 'POST',
               headers: {
                 "Authorization": `Bearer ${RETELL_API_KEY}`,
@@ -109,7 +128,16 @@ serve(async (req) => {
               })
             });
 
-            const responseData = await response.json();
+            const responseText = await response.text();
+            console.log(`Retell API response for ${task.to_number}:`, responseText);
+
+            let responseData;
+            try {
+              responseData = JSON.parse(responseText);
+            } catch (err) {
+              console.error('Error parsing Retell API response:', err);
+              throw new Error(`Invalid response from Retell API: ${responseText}`);
+            }
             
             if (!response.ok) {
               console.error(`Failed to create call to ${task.to_number}:`, responseData);
@@ -172,3 +200,4 @@ serve(async (req) => {
     );
   }
 });
+
