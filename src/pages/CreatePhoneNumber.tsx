@@ -7,7 +7,6 @@ import { Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const CreatePhoneNumber = () => {
   const [areaCode, setAreaCode] = useState("");
@@ -42,7 +41,7 @@ const CreatePhoneNumber = () => {
 
       toast({
         title: "Phone number created successfully",
-        description: `Number: ${data.phone_number_pretty}`,
+        description: `Number: ${data.phone_number_pretty || data.phone_number}`,
       });
 
       // Redirect to phone numbers list (we'll implement this later)
