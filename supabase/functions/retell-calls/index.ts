@@ -6,7 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY');
+// Validate that we have a valid API key and handle errors consistently
+const getApiKey = () => {
+  const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY');
+  if (!RETELL_API_KEY) {
+    throw new Error("RETELL_API_KEY is not configured");
+  }
+  return RETELL_API_KEY;
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -15,12 +22,9 @@ serve(async (req) => {
   }
 
   try {
-    if (!RETELL_API_KEY) {
-      throw new Error("RETELL_API_KEY is not set");
-    }
-
+    const RETELL_API_KEY = getApiKey();
     const body = await req.json().catch(() => ({}));
-    const { action, from_number, to_number, tasks } = body;
+    const { action, filter_criteria, from_number, to_number, tasks, agent_id } = body;
 
     console.log(`Processing ${action} request with body:`, body);
 
@@ -39,13 +43,13 @@ serve(async (req) => {
         });
 
         const responseText = await response.text();
-        console.log('Retell API response:', responseText);
+        console.log('List phone numbers response:', responseText);
 
         let responseData;
         try {
           responseData = JSON.parse(responseText);
         } catch (err) {
-          console.error('Error parsing Retell API response:', err);
+          console.error('Error parsing phone numbers response:', err);
           throw new Error(`Invalid response from Retell API: ${responseText}`);
         }
         
@@ -55,10 +59,71 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify(responseData),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case 'listAgents': {
+        const response = await fetch("https://api.retellai.com/v2/list-agents", {
+          method: 'GET',
+          headers: {
+            "Authorization": `Bearer ${RETELL_API_KEY}`,
+            "Content-Type": "application/json"
           }
+        });
+
+        const responseText = await response.text();
+        console.log('List agents response:', responseText);
+
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (err) {
+          console.error('Error parsing agents response:', err);
+          throw new Error(`Invalid response from Retell API: ${responseText}`);
+        }
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch agents: ${response.status} - ${JSON.stringify(responseData)}`);
+        }
+
+        return new Response(
+          JSON.stringify(responseData),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case 'getCall': {
+        if (!filter_criteria?.call_id) {
+          throw new Error("Call ID is required");
+        }
+
+        const response = await fetch(`https://api.retellai.com/v2/get-call/${filter_criteria.call_id}`, {
+          method: 'GET',
+          headers: {
+            "Authorization": `Bearer ${RETELL_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        const responseText = await response.text();
+        console.log('Get call response:', responseText);
+
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (err) {
+          console.error('Error parsing get call response:', err);
+          throw new Error(`Invalid response from Retell API: ${responseText}`);
+        }
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch call: ${response.status} - ${JSON.stringify(responseData)}`);
+        }
+
+        return new Response(
+          JSON.stringify(responseData),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -79,18 +144,58 @@ serve(async (req) => {
         });
 
         const responseText = await response.text();
-        console.log('Retell API response:', responseText);
+        console.log('Create phone call response:', responseText);
 
         let responseData;
         try {
           responseData = JSON.parse(responseText);
         } catch (err) {
-          console.error('Error parsing Retell API response:', err);
+          console.error('Error parsing create call response:', err);
           throw new Error(`Invalid response from Retell API: ${responseText}`);
         }
 
         if (!response.ok) {
           throw new Error(`Failed to create phone call: ${response.status} - ${JSON.stringify(responseData)}`);
+        }
+
+        return new Response(
+          JSON.stringify(responseData),
+          { 
+            status: 201,
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          }
+        );
+      }
+
+      case 'createWebCall': {
+        if (!agent_id) {
+          throw new Error("agent_id is required");
+        }
+
+        console.log(`Creating web call with agent ${agent_id}`);
+
+        const response = await fetch("https://api.retellai.com/v2/create-web-call", {
+          method: 'POST',
+          headers: {
+            "Authorization": `Bearer ${RETELL_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ agent_id })
+        });
+
+        const responseText = await response.text();
+        console.log('Create web call response:', responseText);
+
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (err) {
+          console.error('Error parsing create web call response:', err);
+          throw new Error(`Invalid response from Retell API: ${responseText}`);
+        }
+
+        if (!response.ok) {
+          throw new Error(`Failed to create web call: ${response.status} - ${JSON.stringify(responseData)}`);
         }
 
         return new Response(
@@ -129,13 +234,13 @@ serve(async (req) => {
             });
 
             const responseText = await response.text();
-            console.log(`Retell API response for ${task.to_number}:`, responseText);
+            console.log(`Batch call response for ${task.to_number}:`, responseText);
 
             let responseData;
             try {
               responseData = JSON.parse(responseText);
             } catch (err) {
-              console.error('Error parsing Retell API response:', err);
+              console.error('Error parsing batch call response:', err);
               throw new Error(`Invalid response from Retell API: ${responseText}`);
             }
             
@@ -184,6 +289,37 @@ serve(async (req) => {
         );
       }
 
+      case 'listCalls': {
+        const response = await fetch("https://api.retellai.com/v2/list-calls", {
+          method: 'POST',
+          headers: {
+            "Authorization": `Bearer ${RETELL_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(filter_criteria || {})
+        });
+
+        const responseText = await response.text();
+        console.log('List calls response:', responseText);
+
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (err) {
+          console.error('Error parsing list calls response:', err);
+          throw new Error(`Invalid response from Retell API: ${responseText}`);
+        }
+
+        if (!response.ok) {
+          throw new Error(`Failed to list calls: ${response.status} - ${JSON.stringify(responseData)}`);
+        }
+
+        return new Response(
+          JSON.stringify(responseData),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       default:
         throw new Error(`Unsupported action: ${action}`);
     }
@@ -200,4 +336,3 @@ serve(async (req) => {
     );
   }
 });
-
