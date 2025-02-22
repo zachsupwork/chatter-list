@@ -14,7 +14,7 @@ interface Agent {
 }
 
 const CreateWebCall = () => {
-  const { agentId } = useParams(); // Get the agent ID from the URL
+  const { agentId } = useParams();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState(agentId || "");
   const [loading, setLoading] = useState(false);
@@ -25,10 +25,12 @@ const CreateWebCall = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Only fetch agents if we don't have an agentId from the URL
     if (!agentId) {
       const fetchAgents = async () => {
         try {
+          setFetchingAgents(true);
+          
+          // First get the API key
           const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
             'retell-calls',
             {
@@ -42,20 +44,21 @@ const CreateWebCall = () => {
             throw new Error("Failed to fetch API key");
           }
 
-          const response = await fetch("https://api.retellai.com/list-agents", {
-            method: 'GET',
-            headers: {
-              "Authorization": `Bearer ${apiResponse.RETELL_API_KEY}`,
-              "Content-Type": "application/json"
+          // Then fetch the agents
+          const { data: agentsData, error: agentsError } = await supabase.functions.invoke(
+            'retell-calls',
+            {
+              body: {
+                action: 'listAgents'
+              }
             }
-          });
+          );
 
-          if (!response.ok) {
-            throw new Error(`Failed to fetch agents: ${response.status}`);
+          if (agentsError) {
+            throw agentsError;
           }
 
-          const agentsData = await response.json();
-          setAgents(agentsData);
+          setAgents(agentsData || []);
         } catch (err: any) {
           console.error('Error fetching agents:', err);
           toast({
@@ -89,7 +92,13 @@ const CreateWebCall = () => {
         }
       );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      if (!data || !data.call_id) {
+        throw new Error("Invalid response from server");
+      }
 
       toast({
         title: "Web call created successfully",
