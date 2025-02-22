@@ -89,6 +89,8 @@ const CreateWebCall = () => {
       if (!accessToken || !widgetContainerRef.current || widgetInitialized) return;
 
       try {
+        console.log('Starting widget initialization...');
+        
         // Remove any existing script to avoid conflicts
         const existingScript = document.querySelector('script[src="https://cdn.retellai.com/sdk/web-sdk.js"]');
         if (existingScript) {
@@ -102,7 +104,7 @@ const CreateWebCall = () => {
         
         await new Promise<void>((resolve, reject) => {
           script.onload = () => resolve();
-          script.onerror = () => reject();
+          script.onerror = () => reject(new Error('Failed to load Retell SDK script'));
           document.body.appendChild(script);
         });
 
@@ -113,19 +115,20 @@ const CreateWebCall = () => {
           throw new Error('Retell SDK not loaded properly');
         }
 
-        try {
-          // Initialize widget using the correct method
-          const widget = window.Retell.widget.createCallWidget({
-            containerId: 'retell-call-widget',
-            accessToken: accessToken,
-          });
+        console.log('SDK loaded, initializing widget...');
+        
+        // Initialize the Retell client first as per documentation
+        const retellClient = new window.Retell();
+        
+        // Create widget using the proper method
+        const widget = retellClient.widget.createCallWidget({
+          containerId: 'retell-call-widget',
+          accessToken: accessToken,
+        });
 
-          console.log('Widget created successfully:', widget);
-          setWidgetInitialized(true);
-        } catch (widgetError) {
-          console.error('Error creating widget instance:', widgetError);
-          throw widgetError;
-        }
+        console.log('Widget created successfully:', widget);
+        setWidgetInitialized(true);
+        
       } catch (err) {
         console.error('Error initializing widget:', err);
         toast({
