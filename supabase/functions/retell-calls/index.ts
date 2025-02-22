@@ -8,7 +8,7 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
-const RETELL_API_BASE = 'https://api.retellai.com';
+const RETELL_API_BASE = 'https://api.retellai.com/v2';
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -45,28 +45,28 @@ serve(async (req) => {
         );
 
       case 'listCalls':
-        endpoint = '/list-calls';
-        method = 'POST';
-        body = {
-          filter_criteria: params.filter_criteria || {},
-          sort_order: params.sort_order || 'descending',
-          limit: params.limit || 50,
-          pagination_key: params.pagination_key,
-        };
+        endpoint = '/calls';  // Updated endpoint
+        method = 'GET';
+        // Convert params to URL search params
+        const searchParams = new URLSearchParams();
+        if (params.limit) searchParams.append('limit', params.limit.toString());
+        if (params.sort_order) searchParams.append('sort_order', params.sort_order);
+        if (params.pagination_key) searchParams.append('pagination_key', params.pagination_key);
+        endpoint = `${endpoint}?${searchParams.toString()}`;
         break;
 
       case 'getCall':
-        endpoint = `/get-call/${params.call_id}`;
+        endpoint = `/calls/${params.call_id}`; // Updated endpoint
         method = 'GET';
         break;
 
       case 'listPhoneNumbers':
-        endpoint = '/list-phone-numbers';
+        endpoint = '/phone-numbers'; // Updated endpoint
         method = 'GET';
         break;
 
       case 'getPhoneNumber':
-        endpoint = `/get-phone-number/${params.phone_number}`;
+        endpoint = `/phone-numbers/${params.phone_number}`; // Updated endpoint
         method = 'GET';
         break;
         
@@ -94,6 +94,8 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    console.log('Retell API response:', data);
+    
     return new Response(
       JSON.stringify(data),
       { headers: corsHeaders }
