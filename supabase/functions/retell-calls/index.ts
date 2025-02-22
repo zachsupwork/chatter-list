@@ -5,8 +5,12 @@ import { corsHeaders } from '../_shared/cors.ts'
 
 const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY')
 
+if (!RETELL_API_KEY) {
+  throw new Error('RETELL_API_KEY is required')
+}
+
 const client = new Retell({
-  apiKey: RETELL_API_KEY as string,
+  apiKey: RETELL_API_KEY,
 })
 
 serve(async (req) => {
