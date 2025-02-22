@@ -188,84 +188,79 @@ const CreateWebCall = () => {
   };
 
   const embedCodeSnippet = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Retell Web Call Widget</title>
-  <!-- Add the Retell SDK -->
-  <script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+<div id="retell-call-widget"></div>
 
-  <!-- Add the styles for the widget -->
-  <style>
-    #retell-call-widget {
-      margin: 20px 0;
-      min-height: 44px; /* Ensure there's space for the button */
-      display: block;
-    }
-    .retell-call-button {
-      background-color: #2563eb;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-family: system, -apple-system, sans-serif;
-      font-size: 14px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      transition: background-color 0.2s;
-      text-decoration: none;
-      min-width: 150px;
-      justify-content: center;
-    }
-    .retell-call-button:hover {
-      background-color: #1d4ed8;
-    }
-  </style>
-</head>
-<body>
-  <!-- Add this where you want the call widget to appear -->
-  <div id="retell-call-widget"></div>
+<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Initialize the widget
-      function initWidget() {
-        console.log('Initializing Retell widget...');
-        
-        if (typeof Retell === 'undefined') {
-          console.error('Retell SDK not loaded yet. Retrying in 1 second...');
-          setTimeout(initWidget, 1000);
-          return;
-        }
+<style>
+  #retell-call-widget {
+    margin: 20px 0;
+    min-height: 44px;
+  }
+  .retell-call-button {
+    background-color: #2563eb;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: system, -apple-system, sans-serif;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.2s;
+    min-width: 150px;
+    justify-content: center;
+  }
+  .retell-call-button:hover {
+    background-color: #1d4ed8;
+  }
+</style>
 
-        try {
-          const widget = Retell.widget.createCallWidget({
-            containerId: 'retell-call-widget',
-            accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
-            renderButton: true,
-            buttonConfig: {
-              text: 'Connect to Agent',
-            },
-            styles: {
-              button: 'retell-call-button'
-            }
-          });
-
-          widget.mount();
-          console.log('Retell widget initialized successfully');
-        } catch (error) {
-          console.error('Error initializing Retell widget:', error);
-        }
+<script>
+  // Wait for the SDK to load
+  function waitForRetell(callback, maxAttempts = 10) {
+    let attempts = 0;
+    
+    function check() {
+      attempts++;
+      if (typeof Retell !== 'undefined') {
+        callback();
+      } else if (attempts < maxAttempts) {
+        console.log('Waiting for Retell SDK to load... Attempt ' + attempts);
+        setTimeout(check, 500);
+      } else {
+        console.error('Failed to load Retell SDK after ' + maxAttempts + ' attempts');
       }
+    }
+    
+    check();
+  }
 
-      // Start initialization
-      initWidget();
-    });
-  </script>
-</body>
-</html>`.trim();
+  // Initialize the widget
+  waitForRetell(function() {
+    try {
+      console.log('Initializing Retell widget...');
+      const widget = Retell.widget.createCallWidget({
+        containerId: 'retell-call-widget',
+        accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
+        renderButton: true,
+        buttonConfig: {
+          text: 'Connect to Agent'
+        },
+        styles: {
+          button: 'retell-call-button'
+        }
+      });
+      
+      widget.mount();
+      console.log('Retell widget initialized successfully');
+    } catch (error) {
+      console.error('Error initializing Retell widget:', error);
+    }
+  });
+</script>`.trim();
 
   const handleCopyCode = async () => {
     try {
