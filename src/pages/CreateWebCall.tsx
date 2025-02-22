@@ -7,16 +7,11 @@ import { Video, Loader2, Code, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
+import { RetellWebClient } from "retell-client-js-sdk";
 
 interface Agent {
   agent_id: string;
   agent_name: string | null;
-}
-
-declare global {
-  interface Window {
-    Retell: any;
-  }
 }
 
 const CreateWebCall = () => {
@@ -29,7 +24,7 @@ const CreateWebCall = () => {
   const [copied, setCopied] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const widgetContainerRef = useRef<HTMLDivElement>(null);
-  const [widgetInitialized, setWidgetInitialized] = useState(false);
+  const retellClientRef = useRef<RetellWebClient | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -85,70 +80,71 @@ const CreateWebCall = () => {
   }, [agentId, toast]);
 
   useEffect(() => {
-    const createWidget = async () => {
-      if (!accessToken || !widgetContainerRef.current || widgetInitialized) return;
+    const initializeCall = async () => {
+      if (!accessToken) return;
 
       try {
-        console.log('Starting widget initialization...');
+        console.log('Initializing Retell Web Client...');
         
-        // Remove any existing script to avoid conflicts
-        const existingScript = document.querySelector('script[src="https://cdn.retellai.com/sdk/web-sdk.js"]');
-        if (existingScript) {
-          existingScript.remove();
+        // Create a new instance of RetellWebClient
+        if (!retellClientRef.current) {
+          retellClientRef.current = new RetellWebClient();
         }
 
-        // Load SDK if not already loaded
-        const script = document.createElement('script');
-        script.src = 'https://cdn.retellai.com/sdk/web-sdk.js';
-        script.async = true;
-        
-        await new Promise<void>((resolve, reject) => {
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error('Failed to load Retell SDK script'));
-          document.body.appendChild(script);
+        // Set up event listeners
+        retellClientRef.current.on("call_started", () => {
+          console.log("Call started");
+          toast({
+            title: "Call started",
+            description: "You are now connected with the agent",
+          });
         });
 
-        // Wait for SDK to be fully loaded
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        retellClientRef.current.on("call_ended", () => {
+          console.log("Call ended");
+          toast({
+            title: "Call ended",
+            description: "The call has been disconnected",
+          });
+        });
 
-        if (!window.Retell) {
-          throw new Error('Retell SDK not loaded properly');
-        }
+        retellClientRef.current.on("error", (error) => {
+          console.error("Call error:", error);
+          toast({
+            variant: "destructive",
+            title: "Call error",
+            description: error.message || "An error occurred during the call",
+          });
+          retellClientRef.current?.stopCall();
+        });
 
-        console.log('SDK loaded, initializing widget...');
-        
-        // Initialize the Retell client first as per documentation
-        const retellClient = new window.Retell();
-        
-        // Create widget using the proper method
-        const widget = retellClient.widget.createCallWidget({
-          containerId: 'retell-call-widget',
+        // Start the call with the access token
+        await retellClientRef.current.startCall({
           accessToken: accessToken,
+          captureDeviceId: "default",
         });
 
-        console.log('Widget created successfully:', widget);
-        setWidgetInitialized(true);
-        
+        console.log('Call initialized successfully');
       } catch (err) {
-        console.error('Error initializing widget:', err);
+        console.error('Error initializing call:', err);
         toast({
           variant: "destructive",
-          title: "Error initializing call widget",
-          description: "Failed to load the call widget. Please try again.",
+          title: "Error initializing call",
+          description: "Failed to start the call. Please try again.",
         });
-        setWidgetInitialized(false);
       }
     };
 
-    createWidget();
+    initializeCall();
 
     // Cleanup function
     return () => {
-      setWidgetInitialized(false);
-      const script = document.querySelector('script[src="https://cdn.retellai.com/sdk/web-sdk.js"]');
-      if (script) script.remove();
+      if (retellClientRef.current) {
+        retellClientRef.current.stopCall();
+        retellClientRef.current = null;
+      }
     };
-  }, [accessToken, widgetInitialized, toast]);
+  }, [accessToken, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,7 +171,6 @@ const CreateWebCall = () => {
 
       setAccessToken(data.access_token);
       setShowCodeSnippet(true);
-      setWidgetInitialized(false); // Reset widget state for re-initialization
 
       toast({
         title: "Web call created successfully",
