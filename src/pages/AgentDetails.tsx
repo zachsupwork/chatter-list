@@ -6,19 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-interface PronunciationDictionary {
-  word: string;
-  alphabet: "ipa" | "cmu";
-  phoneme: string;
-}
-
-interface PostCallAnalysisData {
-  type: "string";
-  name: string;
-  description: string;
-  examples?: string[];
-}
-
 interface Agent {
   agent_id: string;
   response_engine: {
@@ -46,14 +33,23 @@ interface Agent {
   boosted_keywords?: string[];
   enable_transcription_formatting?: boolean;
   opt_out_sensitive_data_storage?: boolean;
-  pronunciation_dictionary?: PronunciationDictionary[];
+  pronunciation_dictionary?: Array<{
+    word: string;
+    alphabet: "ipa" | "cmu";
+    phoneme: string;
+  }>;
   normalize_for_speech?: boolean;
   end_call_after_silence_ms?: number;
   max_call_duration_ms?: number;
   enable_voicemail_detection?: boolean;
   voicemail_message?: string;
   voicemail_detection_timeout_ms?: number;
-  post_call_analysis_data?: PostCallAnalysisData[];
+  post_call_analysis_data?: Array<{
+    type: string;
+    name: string;
+    description: string;
+    examples?: string[];
+  }>;
   begin_message_delay_ms?: number;
   ring_duration_ms?: number;
 }
@@ -73,6 +69,10 @@ export default function AgentDetails() {
 
   const fetchAgentDetails = async () => {
     try {
+      if (!agentId) {
+        throw new Error("Agent ID is required");
+      }
+
       console.log("Fetching API key from Supabase...");
       const { data, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
@@ -92,6 +92,7 @@ export default function AgentDetails() {
       console.log("Making request to Retell API...");
       
       const response = await fetch(`https://api.retellai.com/get-agent/${agentId}`, {
+        method: 'GET',
         headers: {
           "Authorization": `Bearer ${data.RETELL_API_KEY}`,
           "Content-Type": "application/json"
@@ -106,9 +107,14 @@ export default function AgentDetails() {
         throw new Error(`Failed to fetch agent details: ${response.status} ${responseText}`);
       }
 
-      const agentData = JSON.parse(responseText);
-      console.log("Agent details fetched successfully:", agentData);
-      setAgent(agentData);
+      try {
+        const agentData = JSON.parse(responseText);
+        console.log("Agent details fetched successfully:", agentData);
+        setAgent(agentData);
+      } catch (parseError) {
+        console.error("Error parsing response:", parseError);
+        throw new Error("Failed to parse agent details response");
+      }
     } catch (error: any) {
       console.error("Error in fetchAgentDetails:", error);
       toast({

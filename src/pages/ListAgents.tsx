@@ -46,6 +46,7 @@ export default function ListAgents() {
       console.log("Making request to Retell API...");
       
       const response = await fetch("https://api.retellai.com/list-agents", {
+        method: 'GET',
         headers: {
           "Authorization": `Bearer ${data.RETELL_API_KEY}`,
           "Content-Type": "application/json"
