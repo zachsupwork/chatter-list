@@ -78,20 +78,18 @@ const CreateCall = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Filter out empty numbers
-    const validNumbers = toNumbers.filter(entry => entry.number.trim() !== "");
-    
-    if (validNumbers.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please enter at least one valid phone number",
-      });
-      setLoading(false);
-      return;
-    }
-
     try {
+      // Filter out empty numbers
+      const validNumbers = toNumbers.filter(entry => entry.number.trim() !== "");
+      
+      if (validNumbers.length === 0) {
+        throw new Error("Please enter at least one valid phone number");
+      }
+
+      if (!fromNumber) {
+        throw new Error("Please select a from number");
+      }
+
       // If there's only one number, use createPhoneCall
       if (validNumbers.length === 1) {
         const { data, error } = await supabase.functions.invoke(
@@ -106,6 +104,10 @@ const CreateCall = () => {
         );
 
         if (error) throw error;
+
+        if (!data?.call_id) {
+          throw new Error("No call ID returned from the server");
+        }
 
         toast({
           title: "Call created successfully",
@@ -140,7 +142,7 @@ const CreateCall = () => {
       toast({
         variant: "destructive",
         title: "Error creating call",
-        description: err.message || "Something went wrong",
+        description: err.message || "Failed to create call",
       });
     } finally {
       setLoading(false);
@@ -195,9 +197,10 @@ const CreateCall = () => {
                       placeholder="+12137774445"
                       value={entry.number}
                       onChange={(e) => handleNumberChange(index, e.target.value)}
-                      required
-                      pattern="^\+[1-9]\d{1,14}$"
                       className="font-mono"
+                      pattern="^\+[1-9]\d{1,14}$"
+                      title="Please enter a valid E.164 phone number (e.g. +12137774445)"
+                      required
                     />
                     {toNumbers.length > 1 && (
                       <Button
@@ -237,4 +240,3 @@ const CreateCall = () => {
 };
 
 export default CreateCall;
-

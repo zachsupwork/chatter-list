@@ -15,32 +15,20 @@ serve(async (req) => {
   }
 
   try {
-    // Validate API key is set
     if (!RETELL_API_KEY) {
       throw new Error("RETELL_API_KEY is not set");
     }
 
-    // Parse request body and validate action
     const body = await req.json().catch(() => ({}));
-    const { action } = body;
+    const { action, from_number, to_number, tasks } = body;
+
+    console.log(`Processing ${action} request:`, body);
 
     if (!action) {
       throw new Error("Action is required");
     }
 
-    console.log(`Processing ${action} request with body:`, body);
-
     switch (action) {
-      case 'getApiKey': {
-        return new Response(
-          JSON.stringify({ RETELL_API_KEY }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
-      }
-
       case 'listPhoneNumbers': {
         const response = await fetch("https://api.retellai.com/list-phone-numbers", {
           headers: {
@@ -49,14 +37,14 @@ serve(async (req) => {
           }
         });
 
+        const responseData = await response.json();
+        
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to fetch phone numbers: ${response.status} - ${errorText}`);
+          throw new Error(`Failed to fetch phone numbers: ${response.status} - ${JSON.stringify(responseData)}`);
         }
 
-        const data = await response.json();
         return new Response(
-          JSON.stringify(data),
+          JSON.stringify(responseData),
           { 
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -65,10 +53,11 @@ serve(async (req) => {
       }
 
       case 'createPhoneCall': {
-        const { from_number, to_number } = body;
         if (!from_number || !to_number) {
           throw new Error("Missing required parameters: from_number and to_number are required");
         }
+
+        console.log(`Creating phone call from ${from_number} to ${to_number}`);
 
         const response = await fetch("https://api.retellai.com/create-phone-call", {
           method: 'POST',
@@ -79,26 +68,27 @@ serve(async (req) => {
           body: JSON.stringify({ from_number, to_number })
         });
 
+        const responseData = await response.json();
+        
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to create phone call: ${response.status} - ${errorText}`);
+          throw new Error(`Failed to create phone call: ${response.status} - ${JSON.stringify(responseData)}`);
         }
 
-        const data = await response.json();
         return new Response(
-          JSON.stringify(data),
+          JSON.stringify(responseData),
           { 
-            status: 200,
+            status: 201,
             headers: { ...corsHeaders, "Content-Type": "application/json" } 
           }
         );
       }
 
       case 'createBatchCall': {
-        const { from_number, tasks } = body;
         if (!from_number || !Array.isArray(tasks) || tasks.length === 0) {
           throw new Error("Missing required parameters: from_number and tasks array are required");
         }
+
+        console.log(`Creating batch call from ${from_number} with ${tasks.length} tasks`);
 
         const calls = [];
         let successful = 0;
@@ -119,25 +109,23 @@ serve(async (req) => {
               })
             });
 
-            const data = await response.text();
-            const isJson = data.startsWith('{') || data.startsWith('[');
+            const responseData = await response.json();
             
             if (!response.ok) {
-              console.error(`Failed to create call to ${task.to_number}: ${response.status} - ${data}`);
+              console.error(`Failed to create call to ${task.to_number}:`, responseData);
               calls.push({
                 to_number: task.to_number,
                 status: 'error',
-                error: `Failed to create call: ${response.status} - ${data}`
+                error: `Failed to create call: ${response.status} - ${JSON.stringify(responseData)}`
               });
               failed++;
               continue;
             }
 
-            const parsedData = isJson ? JSON.parse(data) : { message: data };
             calls.push({
               to_number: task.to_number,
               status: 'success',
-              data: parsedData
+              data: responseData
             });
             successful++;
           } catch (err) {
@@ -154,7 +142,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             batch_call_id: crypto.randomUUID(),
-            calls: calls,
+            calls,
             summary: {
               total: calls.length,
               successful,
@@ -162,7 +150,7 @@ serve(async (req) => {
             }
           }),
           { 
-            status: 200,
+            status: 201,
             headers: { ...corsHeaders, "Content-Type": "application/json" } 
           }
         );
@@ -175,8 +163,7 @@ serve(async (req) => {
     console.error('Error in edge function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error.stack 
+        error: error.message 
       }),
       { 
         status: 400, 
