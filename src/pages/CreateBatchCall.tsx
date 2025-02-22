@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BatchCallTask {
   to_number: string;
@@ -59,6 +60,20 @@ export default function CreateBatchCall() {
     setIsLoading(true);
 
     try {
+      // First validate the phone number using the same endpoint as single calls
+      const { data: validationData, error: validationError } = await supabase.functions.invoke(
+        'retell-calls',
+        {
+          body: {
+            action: 'validatePhoneNumber',
+            from_number: formData.from_number,
+          }
+        }
+      );
+
+      if (validationError) throw validationError;
+
+      // If validation passes, proceed with batch call creation
       const response = await fetch("/api/create-batch-call", {
         method: "POST",
         headers: {
@@ -79,12 +94,12 @@ export default function CreateBatchCall() {
       });
 
       navigate("/calls");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating batch call:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to create batch call. Please try again.",
+        description: error.message || "Failed to create batch call. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -109,6 +124,9 @@ export default function CreateBatchCall() {
                 required
                 pattern="^\+[1-9]\d{10,14}$"
               />
+              <p className="text-sm text-gray-500 mt-1">
+                Must be a number purchased from or imported to Retell
+              </p>
             </div>
 
             <div>
@@ -179,4 +197,3 @@ export default function CreateBatchCall() {
     </div>
   );
 }
-
