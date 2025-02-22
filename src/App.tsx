@@ -26,6 +26,7 @@ function App() {
             <Route path="/calls/:callId" element={<Call />} />
             <Route path="/create-call" element={<CreateCall />} />
             <Route path="/create-web-call" element={<CreateWebCall />} />
+            <Route path="/create-web-call/:agentId" element={<CreateWebCall />} />
             <Route path="/create-batch-call" element={<CreateBatchCall />} />
             <Route path="/create-phone-number" element={<CreatePhoneNumber />} />
             <Route path="/import-phone-number" element={<ImportPhoneNumber />} />
