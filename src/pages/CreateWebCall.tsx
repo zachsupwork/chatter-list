@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -100,9 +101,17 @@ const CreateWebCall = () => {
           });
         }
 
+        // Wait for a short moment to ensure the SDK is fully loaded
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         // Initialize widget
         console.log('Creating widget with token:', accessToken);
-        const widget = new window.Retell.widget.createCallWidget({
+        
+        // Create Retell client instance first
+        const client = new window.Retell();
+        
+        // Then create the widget using the client
+        const widget = client.widget.createCallWidget({
           containerId: 'retell-call-widget',
           accessToken: accessToken,
         });
@@ -178,9 +187,7 @@ const CreateWebCall = () => {
 
 <script>
 // Initialize the Retell SDK
-const client = new Retell({
-  apiKey: 'YOUR_RETELL_API_KEY'
-});
+const client = new Retell();
 
 // Create a web call
 async function createCall() {
@@ -351,3 +358,4 @@ async function createCall() {
 };
 
 export default CreateWebCall;
+
