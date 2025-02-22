@@ -40,7 +40,7 @@ export default function ListAgents() {
       setIsError(false);
       console.log('Fetching agents data...');
       
-      const { data, error } = await supabase.functions.invoke(
+      const { data: response, error } = await supabase.functions.invoke(
         'retell-calls',
         {
           body: { action: 'listAgents' }
@@ -58,12 +58,12 @@ export default function ListAgents() {
         return;
       }
 
-      if (!data) {
-        throw new Error('No data received from the API');
-      }
-
-      console.log('Received agents data:', data);
-      setAgents(Array.isArray(data) ? data : []);
+      // Handle both array and object responses from the API
+      const agentsData = Array.isArray(response) ? response : 
+                        response?.agents ? response.agents : [];
+      
+      console.log('Received agents data:', agentsData);
+      setAgents(agentsData);
       setIsError(false);
     } catch (error: any) {
       console.error("Error in fetchAgents:", error);

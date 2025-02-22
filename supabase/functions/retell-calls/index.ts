@@ -22,37 +22,38 @@ serve(async (req) => {
     const { action } = await req.json()
     console.log('Processing action:', action)
 
-    if (action === 'getApiKey') {
-      return new Response(
-        JSON.stringify({ RETELL_API_KEY }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      )
-    }
-
     if (action === 'listAgents') {
-      const response = await fetch('https://api.retellai.com/list-agents', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${RETELL_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      console.log('Fetching agents from Retell API...')
+      
+      try {
+        const response = await fetch('https://api.retellai.com/v2/agents', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${RETELL_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (!response.ok) {
-        throw new Error(`Retell API error: ${response.status} ${await response.text()}`)
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Retell API error (${response.status}):`, errorText)
+          throw new Error(`Retell API error: ${response.status} ${errorText}`)
+        }
+
+        const data = await response.json()
+        console.log('Successfully fetched agents:', data)
+
+        return new Response(
+          JSON.stringify(data),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
+          }
+        )
+      } catch (error) {
+        console.error('Error calling Retell API:', error)
+        throw error
       }
-
-      const data = await response.json()
-      return new Response(
-        JSON.stringify(data),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      )
     }
 
     throw new Error(`Unknown action: ${action}`)
