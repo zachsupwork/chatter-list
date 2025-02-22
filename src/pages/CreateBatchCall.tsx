@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Phone, Plus, Minus } from "lucide-react";
 
 interface BatchCallTask {
   to_number: string;
@@ -75,21 +74,23 @@ export default function CreateBatchCall() {
       if (validationError) throw validationError;
 
       // If validation passes, proceed with batch call creation
-      const { data, error } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'createBatchCall',
-            ...formData,
-          }
-        }
-      );
+      const response = await fetch("/api/create-batch-call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create batch call");
+      }
 
       toast({
         title: "Success",
-        description: `Batch call created successfully`,
+        description: `Batch call created with ID: ${data.batch_call_id}`,
       });
 
       navigate("/calls");
@@ -109,10 +110,7 @@ export default function CreateBatchCall() {
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Phone className="h-6 w-6" />
-            Create Batch Call
-          </CardTitle>
+          <CardTitle>Create Batch Call</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -125,7 +123,6 @@ export default function CreateBatchCall() {
                 onChange={(e) => setFormData(prev => ({ ...prev, from_number: e.target.value }))}
                 required
                 pattern="^\+[1-9]\d{10,14}$"
-                className="font-mono"
               />
               <p className="text-sm text-gray-500 mt-1">
                 Must be a number purchased from or imported to Retell
@@ -145,7 +142,7 @@ export default function CreateBatchCall() {
             <div className="space-y-4">
               <label className="block text-sm font-medium mb-2">Call Tasks</label>
               {formData.tasks.map((task, index) => (
-                <div key={index} className="flex gap-2 items-center">
+                <div key={index} className="flex gap-2">
                   <Input
                     type="text"
                     placeholder="To Number (E.164 format)"
@@ -153,32 +150,26 @@ export default function CreateBatchCall() {
                     onChange={(e) => handleTaskChange(index, e.target.value)}
                     required
                     pattern="^\+[1-9]\d{10,14}$"
-                    className="font-mono flex-1"
                   />
-                  {index === formData.tasks.length - 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleAddTask}
-                      className="shrink-0"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  )}
                   {formData.tasks.length > 1 && (
                     <Button
                       type="button"
                       variant="destructive"
-                      size="icon"
                       onClick={() => handleRemoveTask(index)}
-                      className="shrink-0"
                     >
-                      <Minus className="h-4 w-4" />
+                      Remove
                     </Button>
                   )}
                 </div>
               ))}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddTask}
+                className="mt-2"
+              >
+                Add Task
+              </Button>
             </div>
 
             <div>
