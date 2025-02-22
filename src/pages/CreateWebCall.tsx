@@ -26,18 +26,33 @@ const CreateWebCall = () => {
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke(
+        const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
           'retell-calls',
           {
             body: {
-              action: 'listAgents'
+              action: 'getApiKey'
             }
           }
         );
 
-        if (error) throw error;
+        if (apiError || !apiResponse?.RETELL_API_KEY) {
+          throw new Error("Failed to fetch API key");
+        }
 
-        setAgents(data || []);
+        const response = await fetch("https://api.retellai.com/list-agents", {
+          method: 'GET',
+          headers: {
+            "Authorization": `Bearer ${apiResponse.RETELL_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch agents: ${response.status}`);
+        }
+
+        const agentsData = await response.json();
+        setAgents(agentsData);
       } catch (err: any) {
         console.error('Error fetching agents:', err);
         toast({
@@ -51,7 +66,7 @@ const CreateWebCall = () => {
     };
 
     fetchAgents();
-  }, []);
+  }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
