@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -80,7 +79,6 @@ const CreateWebCall = () => {
   }, [agentId, toast]);
 
   useEffect(() => {
-    // Cleanup widget when component unmounts or when call ends
     return () => {
       if (widgetInstanceRef.current) {
         try {
@@ -92,6 +90,103 @@ const CreateWebCall = () => {
       }
     };
   }, []);
+
+  const embedCodeSnippet = `
+<!-- Add this to your HTML -->
+<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
+
+<!-- Default widget styles -->
+<style>
+  #retell-call-widget {
+    max-width: 400px;
+    margin: 20px auto;
+    padding: 20px;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  
+  #retell-call-button {
+    background-color: #2563eb;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto;
+  }
+  
+  #retell-call-button:hover {
+    background-color: #1d4ed8;
+  }
+
+  #retell-call-button svg {
+    width: 20px;
+    height: 20px;
+  }
+</style>
+
+<!-- Add this where you want the call widget to appear -->
+<div id="retell-call-widget"></div>
+
+<script>
+const widget = Retell.widget.createCallWidget({
+  containerId: 'retell-call-widget',
+  accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
+  renderButton: true, // Enable default button rendering
+  buttonConfig: {
+    // Optional: Configure button appearance
+    text: 'Start Call',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>'
+  }
+});
+</script>
+  `.trim();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'retell-calls',
+        {
+          body: {
+            action: 'createWebCall',
+            agent_id: selectedAgentId,
+          }
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data || !data.call_id || !data.access_token) {
+        throw new Error("Invalid response from server");
+      }
+
+      setAccessToken(data.access_token);
+      setShowCodeSnippet(true);
+
+      toast({
+        title: "Web call created successfully",
+        description: `Call ID: ${data.call_id}`,
+      });
+    } catch (err: any) {
+      console.error('Error creating web call:', err);
+      toast({
+        variant: "destructive",
+        title: "Error creating web call",
+        description: err.message || "Something went wrong",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const initializeCall = async () => {
     if (!accessToken || !widgetContainerRef.current) return;
@@ -110,6 +205,12 @@ const CreateWebCall = () => {
       widgetInstanceRef.current = Retell.widget.createCallWidget({
         containerId: 'retell-call-widget',
         accessToken: accessToken,
+        renderButton: true, // Enable default button rendering
+        buttonConfig: {
+          // Configure button appearance for the app
+          text: 'Start Call',
+          icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>'
+        },
         onCallStarted: () => {
           console.log("Call started");
           setIsCallActive(true);
@@ -157,63 +258,6 @@ const CreateWebCall = () => {
       }
     }
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'createWebCall',
-            agent_id: selectedAgentId,
-          }
-        }
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      if (!data || !data.call_id || !data.access_token) {
-        throw new Error("Invalid response from server");
-      }
-
-      setAccessToken(data.access_token);
-      setShowCodeSnippet(true);
-
-      toast({
-        title: "Web call created successfully",
-        description: `Call ID: ${data.call_id}`,
-      });
-    } catch (err: any) {
-      console.error('Error creating web call:', err);
-      toast({
-        variant: "destructive",
-        title: "Error creating web call",
-        description: err.message || "Something went wrong",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const embedCodeSnippet = `
-<!-- Add this to your HTML -->
-<script src="https://cdn.retellai.com/sdk/web-sdk.js"></script>
-
-<!-- Add this where you want the call widget to appear -->
-<div id="retell-call-widget"></div>
-
-<script>
-const widget = Retell.widget.createCallWidget({
-  containerId: 'retell-call-widget',
-  accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}'
-});
-</script>
-  `;
 
   const handleCopyCode = async () => {
     try {
@@ -322,27 +366,16 @@ const widget = Retell.widget.createCallWidget({
                 <p className="text-sm text-gray-500">
                   Click the button below to start the call with the agent. Make sure your microphone is enabled.
                 </p>
-                <div className="flex gap-4">
-                  {!isCallActive ? (
-                    <Button
-                      onClick={initializeCall}
-                      className="w-full"
-                      variant="default"
-                    >
-                      <Video className="mr-2 h-4 w-4" />
-                      Start Call
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleEndCall}
-                      className="w-full"
-                      variant="destructive"
-                    >
-                      End Call
-                    </Button>
-                  )}
-                </div>
                 <div id="retell-call-widget" ref={widgetContainerRef} className="mt-4" />
+                {isCallActive && (
+                  <Button
+                    onClick={handleEndCall}
+                    className="w-full"
+                    variant="destructive"
+                  >
+                    End Call
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
@@ -386,4 +419,3 @@ const widget = Retell.widget.createCallWidget({
 };
 
 export default CreateWebCall;
-
