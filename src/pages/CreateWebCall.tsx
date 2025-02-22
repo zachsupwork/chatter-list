@@ -223,23 +223,35 @@ const CreateWebCall = () => {
 <div id="retell-call-widget"></div>
 
 <script>
-const widget = Retell.widget.createCallWidget({
-  containerId: 'retell-call-widget',
-  accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
-  renderButton: true,
-  buttonConfig: {
-    text: 'Start Call',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.5 17.5L20.5 12.5L15.5 7.5"/><path d="M4 12.5H20"/></svg>'
-  },
-  styles: {
-    button: 'retell-call-button'
+// Wait for the Retell SDK to load
+window.addEventListener('load', function() {
+  if (typeof Retell !== 'undefined') {
+    initializeWidget();
+  } else {
+    // If Retell is not loaded yet, wait for it
+    const script = document.querySelector('script[src*="web-sdk.js"]');
+    script.addEventListener('load', initializeWidget);
   }
 });
 
-// Initialize the widget immediately
-widget.mount();
+function initializeWidget() {
+  const widget = Retell.widget.createCallWidget({
+    containerId: 'retell-call-widget',
+    accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
+    renderButton: true,
+    buttonConfig: {
+      text: 'Start Call',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.5 17.5L20.5 12.5L15.5 7.5"/><path d="M4 12.5H20"/></svg>'
+    },
+    styles: {
+      button: 'retell-call-button'
+    }
+  });
+
+  widget.mount();
+}
 </script>
-  `.trim();
+`.trim();
 
   const handleCopyCode = async () => {
     try {
