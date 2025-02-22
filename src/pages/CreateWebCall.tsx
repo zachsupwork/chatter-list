@@ -270,6 +270,22 @@ const CreateWebCall = () => {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Wait for the Retell SDK to load
+  function waitForRetell(callback, maxAttempts = 20) {
+    let attempts = 0;
+    const interval = setInterval(function() {
+      attempts++;
+      if (typeof RetellWebClient !== 'undefined') {
+        clearInterval(interval);
+        callback();
+      } else if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        console.error('Failed to load Retell SDK');
+        alert('Failed to load Retell SDK. Please refresh the page.');
+      }
+    }, 100);
+  }
+
   let retellClient = null;
   let isInitializing = false;
   const button = document.getElementById('start-call-button');
@@ -281,6 +297,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   async function checkMicrophonePermission() {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Media devices API not available");
+      }
+      
+      if (!window.isSecureContext) {
+        throw new Error("Secure context (HTTPS) required");
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
       return true;
@@ -308,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
         retellClient = null;
       }
 
-      retellClient = new Retell.RetellWebClient();
+      retellClient = new RetellWebClient();
       console.log('RetellWebClient created');
 
       retellClient.on('call_started', () => {
@@ -342,7 +366,6 @@ document.addEventListener('DOMContentLoaded', function() {
         alert(error.message || 'Call error occurred');
       });
 
-      console.log('Starting call with access token: ${accessToken || 'YOUR_ACCESS_TOKEN'}');
       await retellClient.startCall({
         accessToken: '${accessToken || 'YOUR_ACCESS_TOKEN'}',
         captureDeviceId: 'default'
@@ -371,12 +394,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  button.addEventListener('click', function() {
-    if (!retellClient) {
-      startCall();
-    } else {
-      endCall();
-    }
+  waitForRetell(() => {
+    button.addEventListener('click', function() {
+      if (!retellClient) {
+        startCall();
+      } else {
+        endCall();
+      }
+    });
   });
 });
 </script>`.trim();
