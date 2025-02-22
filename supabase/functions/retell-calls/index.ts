@@ -40,14 +40,6 @@ serve(async (req) => {
         url += 'create-phone-call'
         body = { from_number, to_number }
         break
-      case 'listAgents':
-        url = 'https://api.retellai.com/list-agents'
-        method = 'GET'
-        break
-      case 'get':
-        url += `get-call/${call_id}`
-        method = 'GET'
-        break
       case 'listCalls':
       default:
         url += 'list-calls'
@@ -72,6 +64,18 @@ serve(async (req) => {
       ...(method === 'GET' ? {} : { body: JSON.stringify(body) })
     })
 
+    // First check if the response is ok before trying to parse JSON
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Error response from Retell API:', errorText)
+      try {
+        const errorJson = JSON.parse(errorText)
+        throw new Error(errorJson.error?.message || `Failed to ${action}`)
+      } catch (e) {
+        throw new Error(`Failed to ${action}: ${errorText || response.statusText}`)
+      }
+    }
+
     const responseData = await response.json()
     console.log('Raw response data:', responseData)
 
@@ -88,10 +92,6 @@ serve(async (req) => {
         JSON.stringify({ valid: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
-    }
-
-    if (!response.ok) {
-      throw new Error(responseData.error?.message || `Failed to ${action}`)
     }
 
     return new Response(
