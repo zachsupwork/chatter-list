@@ -18,8 +18,28 @@ interface Agent {
   agent_id: string;
   agent_name: string | null;
   voice_id: string;
-  language: string;
   voice_model: string | null;
+  language: string;
+  response_engine: {
+    type: 'retell-llm';
+    llm_id: string;
+  };
+  voice_temperature: number;
+  voice_speed: number;
+  volume: number;
+  responsiveness: number;
+  interruption_sensitivity: number;
+  enable_backchannel: boolean;
+  backchannel_frequency: number;
+  backchannel_words: string[] | null;
+  reminder_trigger_ms: number;
+  reminder_max_count: number;
+  ambient_sound: string | null;
+  ambient_sound_volume: number;
+  webhook_url: string | null;
+  enable_transcription_formatting: boolean;
+  opt_out_sensitive_data_storage: boolean;
+  last_modification_timestamp: number;
 }
 
 export default function ListAgents() {
@@ -36,7 +56,7 @@ export default function ListAgents() {
     try {
       setIsLoading(true);
       console.log("Fetching API key from Supabase...");
-      const { data, error: apiKeyError } = await supabase.functions.invoke(
+      const { data: apiKeyData, error: apiKeyError } = await supabase.functions.invoke(
         'retell-calls',
         {
           body: {
@@ -45,7 +65,7 @@ export default function ListAgents() {
         }
       );
 
-      if (apiKeyError || !data?.RETELL_API_KEY) {
+      if (apiKeyError || !apiKeyData?.RETELL_API_KEY) {
         console.error("Error fetching API key:", apiKeyError);
         throw new Error("Failed to fetch API key");
       }
@@ -56,20 +76,18 @@ export default function ListAgents() {
       const response = await fetch("https://api.retellai.com/list-agents", {
         method: 'GET',
         headers: {
-          "Authorization": `Bearer ${data.RETELL_API_KEY}`,
+          "Authorization": `Bearer ${apiKeyData.RETELL_API_KEY}`,
           "Content-Type": "application/json"
         }
       });
 
-      const responseText = await response.text();
-      console.log("Raw API Response:", responseText);
-
       if (!response.ok) {
-        console.error("Retell API error:", response.status, responseText);
-        throw new Error(`Failed to fetch agents: ${response.status} ${responseText}`);
+        const errorText = await response.text();
+        console.error("Retell API error:", response.status, errorText);
+        throw new Error(`Failed to fetch agents: ${response.status} ${errorText}`);
       }
 
-      const agentsData = JSON.parse(responseText);
+      const agentsData = await response.json();
       console.log("Agents fetched successfully:", agentsData);
       setAgents(agentsData);
     } catch (error: any) {
@@ -129,8 +147,8 @@ export default function ListAgents() {
                   <TableHead>Agent ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Voice ID</TableHead>
-                  <TableHead>Language</TableHead>
                   <TableHead>Voice Model</TableHead>
+                  <TableHead>Language</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -147,8 +165,8 @@ export default function ListAgents() {
                       <TableCell>{agent.agent_id}</TableCell>
                       <TableCell>{agent.agent_name || "N/A"}</TableCell>
                       <TableCell>{agent.voice_id}</TableCell>
-                      <TableCell>{agent.language}</TableCell>
                       <TableCell>{agent.voice_model || "Default"}</TableCell>
+                      <TableCell>{agent.language}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
