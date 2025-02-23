@@ -3,17 +3,29 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Phone, Video, Clock, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface CallData {
   call_id: string;
   agent_id: string;
-  call_type: string;
-  call_status: string;
+  call_type: "web_call" | "phone_call";
+  call_status: "registered" | "ongoing" | "ended" | "error";
   transcript?: string;
   recording_url?: string;
+  from_number?: string;
+  to_number?: string;
+  start_timestamp?: number;
+  end_timestamp?: number;
+  duration_ms?: number;
+  disconnection_reason?: string;
+  call_analysis?: {
+    call_summary: string;
+    user_sentiment: "Positive" | "Negative" | "Neutral" | "Unknown";
+    call_successful: boolean;
+  };
 }
 
 const Call = () => {
@@ -32,9 +44,7 @@ const Call = () => {
         {
           body: {
             action: 'getCall',
-            filter_criteria: {
-              call_id: callId
-            }
+            call_id: callId
           }
         }
       );
@@ -47,6 +57,7 @@ const Call = () => {
         throw new Error("No data received from the server");
       }
 
+      console.log('Received call data:', data);
       setCall(data);
     } catch (err: any) {
       console.error('Error fetching call:', err);
@@ -63,13 +74,15 @@ const Call = () => {
   useEffect(() => {
     if (callId) {
       fetchCall();
-      // Refresh call details every 5 seconds while the call is active
+      // Refresh call details every 5 seconds if call is active
       const interval = setInterval(() => {
-        fetchCall();
+        if (call?.call_status === "ongoing") {
+          fetchCall();
+        }
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [callId]);
+  }, [callId, call?.call_status]);
 
   if (loading) {
     return (
@@ -106,6 +119,47 @@ const Call = () => {
     );
   }
 
+  const formatDuration = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    const remainingSeconds = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+    return `${seconds}s`;
+  };
+
+  const getSentimentColor = (sentiment: string) => {
+    switch (sentiment) {
+      case "Positive":
+        return "text-green-600";
+      case "Negative":
+        return "text-red-600";
+      case "Neutral":
+        return "text-blue-600";
+      default:
+        return "text-gray-600";
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "ongoing":
+        return "text-green-600";
+      case "ended":
+        return "text-blue-600";
+      case "error":
+        return "text-red-600";
+      default:
+        return "text-gray-600";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -122,34 +176,121 @@ const Call = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Call Details</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              {call.call_type === "web_call" ? (
+                <Video className="h-5 w-5" />
+              ) : (
+                <Phone className="h-5 w-5" />
+              )}
+              Call Details
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium">Call ID</p>
-                <p className="text-sm text-gray-500">{call.call_id}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Agent ID</p>
-                <p className="text-sm text-gray-500">{call.agent_id}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Status</p>
-                <p className="text-sm text-gray-500">{call.call_status}</p>
-              </div>
-              {call.transcript && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium">Transcript</p>
-                  <pre className="mt-2 whitespace-pre-wrap text-sm text-gray-500 bg-gray-50 p-4 rounded-md">
+                  <p className="text-sm font-medium">Call ID</p>
+                  <p className="text-sm text-gray-500">{call.call_id}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Agent ID</p>
+                  <p className="text-sm text-gray-500">{call.agent_id}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Type</p>
+                  <p className="text-sm text-gray-500 capitalize">{call.call_type.replace('_', ' ')}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Status</p>
+                  <p className={`text-sm capitalize font-medium ${getStatusColor(call.call_status)}`}>
+                    {call.call_status}
+                  </p>
+                </div>
+                {call.from_number && call.to_number && (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium">From</p>
+                      <p className="text-sm text-gray-500">{call.from_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">To</p>
+                      <p className="text-sm text-gray-500">{call.to_number}</p>
+                    </div>
+                  </>
+                )}
+                {call.start_timestamp && (
+                  <div>
+                    <p className="text-sm font-medium">Start Time</p>
+                    <p className="text-sm text-gray-500">
+                      {format(new Date(call.start_timestamp), 'PPpp')}
+                    </p>
+                  </div>
+                )}
+                {call.end_timestamp && (
+                  <div>
+                    <p className="text-sm font-medium">End Time</p>
+                    <p className="text-sm text-gray-500">
+                      {format(new Date(call.end_timestamp), 'PPpp')}
+                    </p>
+                  </div>
+                )}
+                {call.duration_ms && (
+                  <div>
+                    <p className="text-sm font-medium">Duration</p>
+                    <p className="text-sm text-gray-500">{formatDuration(call.duration_ms)}</p>
+                  </div>
+                )}
+                {call.disconnection_reason && (
+                  <div>
+                    <p className="text-sm font-medium">Disconnection Reason</p>
+                    <p className="text-sm text-gray-500 capitalize">
+                      {call.disconnection_reason.replace(/_/g, ' ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {call.call_analysis && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">Call Analysis</h3>
+                  <div className="space-y-4">
+                    {call.call_analysis.call_summary && (
+                      <div>
+                        <p className="text-sm font-medium">Summary</p>
+                        <p className="text-sm text-gray-500">{call.call_analysis.call_summary}</p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium">Sentiment</p>
+                        <p className={`text-sm font-medium ${getSentimentColor(call.call_analysis.user_sentiment)}`}>
+                          {call.call_analysis.user_sentiment}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Call Success</p>
+                        <p className={`text-sm font-medium ${call.call_analysis.call_successful ? 'text-green-600' : 'text-red-600'}`}>
+                          {call.call_analysis.call_successful ? 'Successful' : 'Unsuccessful'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {call.transcript && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">Transcript</h3>
+                  <pre className="whitespace-pre-wrap text-sm text-gray-500 bg-gray-50 p-4 rounded-md">
                     {call.transcript}
                   </pre>
                 </div>
               )}
+
               {call.recording_url && (
-                <div>
-                  <p className="text-sm font-medium">Recording</p>
-                  <audio controls className="mt-2 w-full">
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">Recording</h3>
+                  <audio controls className="w-full">
                     <source src={call.recording_url} type="audio/wav" />
                     Your browser does not support the audio element.
                   </audio>
