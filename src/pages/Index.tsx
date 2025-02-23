@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import {
   Table,
@@ -58,7 +59,7 @@ const Index = () => {
       setLoading(true);
       console.log('Fetching calls data...');
       
-      const { data: callsData, error } = await supabase.functions.invoke(
+      const { data: response, error } = await supabase.functions.invoke(
         'retell-calls',
         {
           body: { 
@@ -73,13 +74,14 @@ const Index = () => {
         throw error;
       }
 
-      if (!callsData?.calls) {
-        console.error('Received data:', callsData);
-        throw new Error("No calls data in response");
+      // The response is directly the array of calls
+      if (!Array.isArray(response)) {
+        console.error('Received unexpected response format:', response);
+        throw new Error('Invalid response format from API');
       }
 
-      console.log('Setting calls data:', callsData.calls);
-      setCalls(callsData.calls || []);
+      console.log('Setting calls data:', response);
+      setCalls(response);
     } catch (err: any) {
       console.error('Error fetching calls:', err);
       toast({
@@ -284,3 +286,4 @@ const Index = () => {
 };
 
 export default Index;
+
