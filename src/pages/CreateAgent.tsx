@@ -119,6 +119,7 @@ export default function CreateAgent() {
     },
     voice_id: "",
     agent_name: "",
+    voice_model: null,
     voice_temperature: 1,
     voice_speed: 1,
     volume: 1,
@@ -129,15 +130,21 @@ export default function CreateAgent() {
     backchannel_words: [],
     reminder_trigger_ms: 10000,
     reminder_max_count: 1,
+    ambient_sound: null,
     ambient_sound_volume: 1,
     language: "en-US",
+    webhook_url: null,
+    boosted_keywords: [],
     enable_transcription_formatting: true,
     opt_out_sensitive_data_storage: false,
+    pronunciation_dictionary: null,
     normalize_for_speech: true,
     end_call_after_silence_ms: 600000,
     max_call_duration_ms: 3600000,
     enable_voicemail_detection: false,
+    voicemail_message: "",
     voicemail_detection_timeout_ms: 30000,
+    post_call_analysis_data: null,
     begin_message_delay_ms: 1000,
     ring_duration_ms: 30000
   });
@@ -256,7 +263,7 @@ export default function CreateAgent() {
                     value={formData.voice_model || ""}
                     onValueChange={(value) => setFormData(prev => ({
                       ...prev,
-                      voice_model: value as "eleven_turbo_v2" | "eleven_flash_v2" | "eleven_turbo_v2_5" | "eleven_flash_v2_5" | "eleven_multilingual_v2" | "Play3.0-mini" | "PlayDialog" | null
+                      voice_model: value as typeof prev.voice_model
                     }))}
                   >
                     <SelectTrigger>
@@ -275,7 +282,7 @@ export default function CreateAgent() {
                 <div>
                   <Label>Language</Label>
                   <Select
-                    value={formData.language || "en-US"}
+                    value={formData.language}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, language: value }))}
                   >
                     <SelectTrigger>
@@ -291,7 +298,6 @@ export default function CreateAgent() {
                   </Select>
                 </div>
 
-                {/* Voice Settings */}
                 <div>
                   <Label>Voice Temperature (0-2)</Label>
                   <Input
@@ -299,7 +305,7 @@ export default function CreateAgent() {
                     min="0"
                     max="2"
                     step="0.1"
-                    value={formData.voice_temperature || 1}
+                    value={formData.voice_temperature}
                     onChange={(e) => setFormData(prev => ({ ...prev, voice_temperature: parseFloat(e.target.value) }))}
                   />
                 </div>
@@ -311,7 +317,7 @@ export default function CreateAgent() {
                     min="0.5"
                     max="2"
                     step="0.1"
-                    value={formData.voice_speed || 1}
+                    value={formData.voice_speed}
                     onChange={(e) => setFormData(prev => ({ ...prev, voice_speed: parseFloat(e.target.value) }))}
                   />
                 </div>
@@ -323,7 +329,7 @@ export default function CreateAgent() {
                     min="0"
                     max="2"
                     step="0.1"
-                    value={formData.volume || 1}
+                    value={formData.volume}
                     onChange={(e) => setFormData(prev => ({ ...prev, volume: parseFloat(e.target.value) }))}
                   />
                 </div>
@@ -334,6 +340,18 @@ export default function CreateAgent() {
                     value={formData.webhook_url || ""}
                     onChange={(e) => setFormData(prev => ({ ...prev, webhook_url: e.target.value }))}
                     placeholder="Enter webhook URL"
+                  />
+                </div>
+
+                <div>
+                  <Label>Boosted Keywords (comma-separated)</Label>
+                  <Input
+                    value={formData.boosted_keywords?.join(", ") || ""}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      boosted_keywords: e.target.value.split(",").map(k => k.trim()).filter(k => k)
+                    }))}
+                    placeholder="Enter keywords"
                   />
                 </div>
               </div>
@@ -347,7 +365,7 @@ export default function CreateAgent() {
                     min="0"
                     max="1"
                     step="0.1"
-                    value={formData.responsiveness || 1}
+                    value={formData.responsiveness}
                     onChange={(e) => setFormData(prev => ({ ...prev, responsiveness: parseFloat(e.target.value) }))}
                   />
                 </div>
@@ -359,7 +377,7 @@ export default function CreateAgent() {
                     min="0"
                     max="1"
                     step="0.1"
-                    value={formData.interruption_sensitivity || 1}
+                    value={formData.interruption_sensitivity}
                     onChange={(e) => setFormData(prev => ({ ...prev, interruption_sensitivity: parseFloat(e.target.value) }))}
                   />
                 </div>
@@ -390,20 +408,8 @@ export default function CreateAgent() {
                     min="0"
                     max="2"
                     step="0.1"
-                    value={formData.ambient_sound_volume || 1}
+                    value={formData.ambient_sound_volume}
                     onChange={(e) => setFormData(prev => ({ ...prev, ambient_sound_volume: parseFloat(e.target.value) }))}
-                  />
-                </div>
-
-                <div>
-                  <Label>Boosted Keywords (comma-separated)</Label>
-                  <Input
-                    value={formData.boosted_keywords?.join(", ") || ""}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      boosted_keywords: e.target.value.split(",").map(k => k.trim()).filter(k => k)
-                    }))}
-                    placeholder="Enter keywords"
                   />
                 </div>
 
@@ -417,6 +423,72 @@ export default function CreateAgent() {
                     }))}
                     placeholder="Enter backchannel words"
                     disabled={!formData.enable_backchannel}
+                  />
+                </div>
+
+                <div>
+                  <Label>End Call After Silence (ms)</Label>
+                  <Input
+                    type="number"
+                    min="10000"
+                    value={formData.end_call_after_silence_ms}
+                    onChange={(e) => setFormData(prev => ({ ...prev, end_call_after_silence_ms: parseInt(e.target.value) }))}
+                  />
+                </div>
+
+                <div>
+                  <Label>Max Call Duration (ms)</Label>
+                  <Input
+                    type="number"
+                    min="60000"
+                    max="7200000"
+                    value={formData.max_call_duration_ms}
+                    onChange={(e) => setFormData(prev => ({ ...prev, max_call_duration_ms: parseInt(e.target.value) }))}
+                  />
+                </div>
+
+                {formData.enable_voicemail_detection && (
+                  <div>
+                    <Label>Voicemail Message</Label>
+                    <Input
+                      value={formData.voicemail_message || ""}
+                      onChange={(e) => setFormData(prev => ({ ...prev, voicemail_message: e.target.value }))}
+                      placeholder="Enter voicemail message"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <Label>Voicemail Detection Timeout (ms)</Label>
+                  <Input
+                    type="number"
+                    min="5000"
+                    max="180000"
+                    value={formData.voicemail_detection_timeout_ms}
+                    onChange={(e) => setFormData(prev => ({ ...prev, voicemail_detection_timeout_ms: parseInt(e.target.value) }))}
+                    disabled={!formData.enable_voicemail_detection}
+                  />
+                </div>
+
+                <div>
+                  <Label>Begin Message Delay (ms)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="5000"
+                    value={formData.begin_message_delay_ms}
+                    onChange={(e) => setFormData(prev => ({ ...prev, begin_message_delay_ms: parseInt(e.target.value) }))}
+                  />
+                </div>
+
+                <div>
+                  <Label>Ring Duration (ms)</Label>
+                  <Input
+                    type="number"
+                    min="5000"
+                    max="90000"
+                    value={formData.ring_duration_ms}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ring_duration_ms: parseInt(e.target.value) }))}
                   />
                 </div>
 
@@ -454,17 +526,6 @@ export default function CreateAgent() {
                     />
                   </div>
                 </div>
-
-                {formData.enable_voicemail_detection && (
-                  <div>
-                    <Label>Voicemail Message</Label>
-                    <Input
-                      value={formData.voicemail_message || ""}
-                      onChange={(e) => setFormData(prev => ({ ...prev, voicemail_message: e.target.value }))}
-                      placeholder="Enter voicemail message"
-                    />
-                  </div>
-                )}
               </div>
             </div>
 
@@ -483,4 +544,3 @@ export default function CreateAgent() {
     </div>
   );
 }
-
