@@ -11,11 +11,12 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, DollarSign, Phone, Video } from "lucide-react";
+import { Clock, DollarSign, Phone, Video, RefreshCcw, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 interface CallData {
   call_type: "web_call" | "phone_call";
@@ -137,14 +138,27 @@ const Index = () => {
     }
   };
 
+  const getDisconnectionReason = (reason: string) => {
+    return reason?.replace(/_/g, ' ').toLowerCase();
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <Card className="max-w-7xl mx-auto">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Phone className="h-6 w-6" />
             Call History
           </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchCalls}
+            className="flex items-center gap-2"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Refresh
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="relative overflow-x-auto rounded-lg">
@@ -162,14 +176,14 @@ const Index = () => {
                   <TableHead>Cost</TableHead>
                   <TableHead>Sentiment</TableHead>
                   <TableHead>Success</TableHead>
+                  <TableHead>Disconnect Reason</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  // Loading skeleton rows
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 11 }).map((_, j) => (
+                      {Array.from({ length: 12 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-[100px]" />
                         </TableCell>
@@ -177,7 +191,6 @@ const Index = () => {
                     </TableRow>
                   ))
                 ) : calls.length > 0 ? (
-                  // Display calls data
                   calls.map((call) => (
                     <TableRow key={call.call_id}>
                       <TableCell>
@@ -245,12 +258,19 @@ const Index = () => {
                           </Badge>
                         ) : '-'}
                       </TableCell>
+                      <TableCell>
+                        {call.disconnection_reason ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                            {getDisconnectionReason(call.disconnection_reason)}
+                          </div>
+                        ) : '-'}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  // Show empty state
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
+                    <TableCell colSpan={12} className="text-center py-8">
                       No calls found
                     </TableCell>
                   </TableRow>
@@ -265,3 +285,4 @@ const Index = () => {
 };
 
 export default Index;
+

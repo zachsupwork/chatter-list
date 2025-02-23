@@ -3,18 +3,44 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, Phone, Video, Clock, Calendar } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Loader2, 
+  Phone, 
+  Video, 
+  Clock, 
+  Calendar,
+  Activity,
+  AlertTriangle,
+  MessageSquare,
+  PlayCircle,
+  DollarSign,
+  Users,
+  FileText,
+  Link as LinkIcon
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 interface CallData {
+  call_type: "web_call" | "phone_call";
   call_id: string;
   agent_id: string;
-  call_type: "web_call" | "phone_call";
   call_status: "registered" | "ongoing" | "ended" | "error";
   transcript?: string;
+  transcript_object?: {
+    role: "agent" | "user";
+    content: string;
+    words: {
+      word: string;
+      start: number;
+      end: number;
+    }[];
+  }[];
   recording_url?: string;
+  public_log_url?: string;
   from_number?: string;
   to_number?: string;
   start_timestamp?: number;
@@ -26,6 +52,17 @@ interface CallData {
     user_sentiment: "Positive" | "Negative" | "Neutral" | "Unknown";
     call_successful: boolean;
     in_voicemail?: boolean;
+  };
+  call_cost?: {
+    product_costs: {
+      product: string;
+      unitPrice: number;
+      cost: number;
+    }[];
+    total_duration_seconds: number;
+    total_duration_unit_price: number;
+    total_one_time_price: number;
+    combined_cost: number;
   };
   latency?: {
     e2e?: {
@@ -89,7 +126,6 @@ const Call = () => {
   useEffect(() => {
     if (callId) {
       fetchCall();
-      // Refresh call details every 5 seconds if call is active
       const interval = setInterval(() => {
         if (call?.call_status === "ongoing") {
           fetchCall();
@@ -175,6 +211,10 @@ const Call = () => {
     }
   };
 
+  const formatLatency = (latency: number) => {
+    return `${latency.toFixed(0)}ms`;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -202,22 +242,32 @@ const Call = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
+              {/* Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium">Call ID</p>
-                  <p className="text-sm text-gray-500">{call.call_id}</p>
+                  <p className="text-sm font-mono text-gray-500">{call.call_id}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Agent ID</p>
-                  <p className="text-sm text-gray-500">{call.agent_id}</p>
+                  <p className="text-sm font-mono text-gray-500">{call.agent_id}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Type</p>
-                  <p className="text-sm text-gray-500 capitalize">{call.call_type.replace('_', ' ')}</p>
+                  <div className="flex items-center gap-2">
+                    {call.call_type === "web_call" ? (
+                      <Video className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <Phone className="h-4 w-4 text-gray-500" />
+                    )}
+                    <span className="text-sm text-gray-500 capitalize">
+                      {call.call_type.replace('_', ' ')}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Status</p>
-                  <p className={`text-sm capitalize font-medium ${getStatusColor(call.call_status)}`}>
+                  <p className={`text-sm font-medium capitalize ${getStatusColor(call.call_status)}`}>
                     {call.call_status}
                   </p>
                 </div>
@@ -225,57 +275,140 @@ const Call = () => {
                   <>
                     <div>
                       <p className="text-sm font-medium">From</p>
-                      <p className="text-sm text-gray-500">{call.from_number}</p>
+                      <p className="text-sm font-mono text-gray-500">{call.from_number}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium">To</p>
-                      <p className="text-sm text-gray-500">{call.to_number}</p>
+                      <p className="text-sm font-mono text-gray-500">{call.to_number}</p>
                     </div>
                   </>
                 )}
                 {call.start_timestamp && (
                   <div>
                     <p className="text-sm font-medium">Start Time</p>
-                    <p className="text-sm text-gray-500">
-                      {format(new Date(call.start_timestamp), 'PPpp')}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <p className="text-sm text-gray-500">
+                        {format(new Date(call.start_timestamp), 'PPpp')}
+                      </p>
+                    </div>
                   </div>
                 )}
                 {call.end_timestamp && (
                   <div>
                     <p className="text-sm font-medium">End Time</p>
-                    <p className="text-sm text-gray-500">
-                      {format(new Date(call.end_timestamp), 'PPpp')}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <p className="text-sm text-gray-500">
+                        {format(new Date(call.end_timestamp), 'PPpp')}
+                      </p>
+                    </div>
                   </div>
                 )}
                 {call.duration_ms && (
                   <div>
                     <p className="text-sm font-medium">Duration</p>
-                    <p className="text-sm text-gray-500">{formatDuration(call.duration_ms)}</p>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <p className="text-sm text-gray-500">{formatDuration(call.duration_ms)}</p>
+                    </div>
                   </div>
                 )}
                 {call.disconnection_reason && (
                   <div>
                     <p className="text-sm font-medium">Disconnection Reason</p>
-                    <p className="text-sm text-gray-500 capitalize">
-                      {call.disconnection_reason.replace(/_/g, ' ')}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                      <p className="text-sm text-gray-500 capitalize">
+                        {call.disconnection_reason.replace(/_/g, ' ')}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
 
+              {/* Latency Info */}
+              {call.latency?.e2e && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Latency Metrics
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-sm font-medium">P50</p>
+                      <p className="text-sm text-gray-500">{formatLatency(call.latency.e2e.p50)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">P90</p>
+                      <p className="text-sm text-gray-500">{formatLatency(call.latency.e2e.p90)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Min</p>
+                      <p className="text-sm text-gray-500">{formatLatency(call.latency.e2e.min)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Max</p>
+                      <p className="text-sm text-gray-500">{formatLatency(call.latency.e2e.max)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Cost Info */}
+              {call.call_cost && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Cost Breakdown
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium">Total Cost</p>
+                        <p className="text-sm text-gray-500">
+                          ${(call.call_cost.combined_cost / 100).toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Duration Cost</p>
+                        <p className="text-sm text-gray-500">
+                          ${(call.call_cost.total_duration_unit_price * call.call_cost.total_duration_seconds / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    {call.call_cost.product_costs.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Product Costs</p>
+                        <div className="space-y-2">
+                          {call.call_cost.product_costs.map((cost, index) => (
+                            <div key={index} className="flex justify-between text-sm">
+                              <span className="text-gray-500 capitalize">{cost.product}</span>
+                              <span className="text-gray-500">${(cost.cost / 100).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Call Analysis */}
               {call.call_analysis && (
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Call Analysis</h3>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Call Analysis
+                  </h3>
                   <div className="space-y-4">
                     {call.call_analysis.call_summary && (
                       <div>
                         <p className="text-sm font-medium">Summary</p>
-                        <p className="text-sm text-gray-500">{call.call_analysis.call_summary}</p>
+                        <p className="text-sm text-gray-500 mt-1">{call.call_analysis.call_summary}</p>
                       </div>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <p className="text-sm font-medium">Sentiment</p>
                         <p className={`text-sm font-medium ${getSentimentColor(call.call_analysis.user_sentiment)}`}>
@@ -284,33 +417,87 @@ const Call = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium">Call Success</p>
-                        <p className={`text-sm font-medium ${call.call_analysis.call_successful ? 'text-green-600' : 'text-red-600'}`}>
+                        <Badge 
+                          variant="outline"
+                          className={call.call_analysis.call_successful ? 'border-green-500 text-green-700' : 'border-red-500 text-red-700'}
+                        >
                           {call.call_analysis.call_successful ? 'Successful' : 'Unsuccessful'}
-                        </p>
+                        </Badge>
                       </div>
+                      {call.call_analysis.in_voicemail !== undefined && (
+                        <div>
+                          <p className="text-sm font-medium">Voicemail Detected</p>
+                          <Badge 
+                            variant="outline"
+                            className={call.call_analysis.in_voicemail ? 'border-yellow-500 text-yellow-700' : 'border-gray-500 text-gray-700'}
+                          >
+                            {call.call_analysis.in_voicemail ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
-              {call.transcript && (
+              {/* Transcript */}
+              {call.transcript_object && (
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Transcript</h3>
-                  <pre className="whitespace-pre-wrap text-sm text-gray-500 bg-gray-50 p-4 rounded-md">
-                    {call.transcript}
-                  </pre>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Transcript
+                  </h3>
+                  <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+                    {call.transcript_object.map((entry, index) => (
+                      <div key={index} className="flex gap-3">
+                        <Badge 
+                          variant="outline"
+                          className={entry.role === "agent" ? "border-blue-500 text-blue-700" : "border-gray-500 text-gray-700"}
+                        >
+                          {entry.role === "agent" ? "Agent" : "User"}
+                        </Badge>
+                        <p className="text-sm text-gray-700">{entry.content}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {call.recording_url && (
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Recording</h3>
-                  <audio controls className="w-full">
-                    <source src={call.recording_url} type="audio/wav" />
-                    Your browser does not support the audio element.
-                  </audio>
+              {/* Links */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <LinkIcon className="h-5 w-5" />
+                  Resources
+                </h3>
+                <div className="space-y-3">
+                  {call.recording_url && (
+                    <div>
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <PlayCircle className="h-4 w-4" />
+                        Recording
+                      </p>
+                      <audio controls className="w-full mt-2">
+                        <source src={call.recording_url} type="audio/wav" />
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  )}
+                  {call.public_log_url && (
+                    <div>
+                      <p className="text-sm font-medium">Public Log</p>
+                      <a 
+                        href={call.public_log_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-500 hover:text-blue-700 flex items-center gap-2"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View call logs
+                      </a>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -320,3 +507,4 @@ const Call = () => {
 };
 
 export default Call;
+
