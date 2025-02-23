@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -117,11 +119,27 @@ export default function CreateAgent() {
     },
     voice_id: "",
     agent_name: "",
+    voice_temperature: 1,
+    voice_speed: 1,
+    volume: 1,
+    responsiveness: 1,
+    interruption_sensitivity: 1,
     enable_backchannel: false,
+    backchannel_frequency: 0.8,
+    backchannel_words: [],
+    reminder_trigger_ms: 10000,
+    reminder_max_count: 1,
+    ambient_sound_volume: 1,
+    language: "en-US",
     enable_transcription_formatting: true,
     opt_out_sensitive_data_storage: false,
     normalize_for_speech: true,
-    enable_voicemail_detection: false
+    end_call_after_silence_ms: 600000,
+    max_call_duration_ms: 3600000,
+    enable_voicemail_detection: false,
+    voicemail_detection_timeout_ms: 30000,
+    begin_message_delay_ms: 1000,
+    ring_duration_ms: 30000
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -179,166 +197,274 @@ export default function CreateAgent() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Information */}
-            <div className="space-y-4">
-              <div>
-                <Label>LLM ID</Label>
-                <Select
-                  value={formData.response_engine.llm_id}
-                  onValueChange={(value) => setFormData(prev => ({
-                    ...prev,
-                    response_engine: { ...prev.response_engine, llm_id: value }
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select LLM type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {llmOptions.map((llm) => (
-                      <SelectItem key={llm.id} value={llm.id}>
-                        {llm.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Voice</Label>
-                <Select
-                  value={formData.voice_id}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, voice_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {llmVoices.map((voice) => (
-                      <SelectItem key={voice.id} value={voice.id}>
-                        {voice.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Agent Name</Label>
-                <Input
-                  value={formData.agent_name || ""}
-                  onChange={(e) => setFormData(prev => ({ ...prev, agent_name: e.target.value }))}
-                  placeholder="Enter agent name"
-                />
-              </div>
-
-              <div>
-                <Label>Voice Model</Label>
-                <Select
-                  value={formData.voice_model || ""}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, voice_model: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select voice model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {voiceModels.map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Language</Label>
-                <Select
-                  value={formData.language || "en-US"}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, language: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languages.map((lang) => (
-                      <SelectItem key={lang} value={lang}>
-                        {lang}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Voice Settings */}
-              <div>
-                <Label>Voice Temperature (0-2)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  value={formData.voice_temperature || 1}
-                  onChange={(e) => setFormData(prev => ({ ...prev, voice_temperature: parseFloat(e.target.value) }))}
-                />
-              </div>
-
-              <div>
-                <Label>Voice Speed (0.5-2)</Label>
-                <Input
-                  type="number"
-                  min="0.5"
-                  max="2"
-                  step="0.1"
-                  value={formData.voice_speed || 1}
-                  onChange={(e) => setFormData(prev => ({ ...prev, voice_speed: parseFloat(e.target.value) }))}
-                />
-              </div>
-
-              {/* Ambient Sound */}
-              <div>
-                <Label>Ambient Sound</Label>
-                <Select
-                  value={formData.ambient_sound || ""}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, ambient_sound: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select ambient sound" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ambientSounds.map((sound) => (
-                      <SelectItem key={sound} value={sound}>
-                        {sound}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Toggle Settings */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Basic Information */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Enable Backchannel</Label>
-                  <Switch
-                    checked={formData.enable_backchannel}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enable_backchannel: checked }))}
+                <div>
+                  <Label>LLM ID</Label>
+                  <Select
+                    value={formData.response_engine.llm_id}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      response_engine: { ...prev.response_engine, llm_id: value }
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select LLM type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {llmOptions.map((llm) => (
+                        <SelectItem key={llm.id} value={llm.id}>
+                          {llm.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Agent Name</Label>
+                  <Input
+                    value={formData.agent_name || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, agent_name: e.target.value }))}
+                    placeholder="Enter agent name"
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <Label>Enable Transcription Formatting</Label>
-                  <Switch
-                    checked={formData.enable_transcription_formatting}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enable_transcription_formatting: checked }))}
+                <div>
+                  <Label>Voice</Label>
+                  <Select
+                    value={formData.voice_id}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, voice_id: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select voice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {llmVoices.map((voice) => (
+                        <SelectItem key={voice.id} value={voice.id}>
+                          {voice.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Voice Model</Label>
+                  <Select
+                    value={formData.voice_model || ""}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      voice_model: value as "eleven_turbo_v2" | "eleven_flash_v2" | "eleven_turbo_v2_5" | "eleven_flash_v2_5" | "eleven_multilingual_v2" | "Play3.0-mini" | "PlayDialog" | null
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select voice model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {voiceModels.map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Language</Label>
+                  <Select
+                    value={formData.language || "en-US"}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, language: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languages.map((lang) => (
+                        <SelectItem key={lang} value={lang}>
+                          {lang}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Voice Settings */}
+                <div>
+                  <Label>Voice Temperature (0-2)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={formData.voice_temperature || 1}
+                    onChange={(e) => setFormData(prev => ({ ...prev, voice_temperature: parseFloat(e.target.value) }))}
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <Label>Enable Voicemail Detection</Label>
-                  <Switch
-                    checked={formData.enable_voicemail_detection}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enable_voicemail_detection: checked }))}
+                <div>
+                  <Label>Voice Speed (0.5-2)</Label>
+                  <Input
+                    type="number"
+                    min="0.5"
+                    max="2"
+                    step="0.1"
+                    value={formData.voice_speed || 1}
+                    onChange={(e) => setFormData(prev => ({ ...prev, voice_speed: parseFloat(e.target.value) }))}
                   />
                 </div>
+
+                <div>
+                  <Label>Volume (0-2)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={formData.volume || 1}
+                    onChange={(e) => setFormData(prev => ({ ...prev, volume: parseFloat(e.target.value) }))}
+                  />
+                </div>
+
+                <div>
+                  <Label>Webhook URL</Label>
+                  <Input
+                    value={formData.webhook_url || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, webhook_url: e.target.value }))}
+                    placeholder="Enter webhook URL"
+                  />
+                </div>
+              </div>
+
+              {/* Advanced Settings */}
+              <div className="space-y-4">
+                <div>
+                  <Label>Responsiveness (0-1)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={formData.responsiveness || 1}
+                    onChange={(e) => setFormData(prev => ({ ...prev, responsiveness: parseFloat(e.target.value) }))}
+                  />
+                </div>
+
+                <div>
+                  <Label>Interruption Sensitivity (0-1)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={formData.interruption_sensitivity || 1}
+                    onChange={(e) => setFormData(prev => ({ ...prev, interruption_sensitivity: parseFloat(e.target.value) }))}
+                  />
+                </div>
+
+                <div>
+                  <Label>Ambient Sound</Label>
+                  <Select
+                    value={formData.ambient_sound || ""}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, ambient_sound: value as any }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select ambient sound" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ambientSounds.map((sound) => (
+                        <SelectItem key={sound} value={sound}>
+                          {sound}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Ambient Sound Volume (0-2)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={formData.ambient_sound_volume || 1}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ambient_sound_volume: parseFloat(e.target.value) }))}
+                  />
+                </div>
+
+                <div>
+                  <Label>Boosted Keywords (comma-separated)</Label>
+                  <Input
+                    value={formData.boosted_keywords?.join(", ") || ""}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      boosted_keywords: e.target.value.split(",").map(k => k.trim()).filter(k => k)
+                    }))}
+                    placeholder="Enter keywords"
+                  />
+                </div>
+
+                <div>
+                  <Label>Backchannel Words (comma-separated)</Label>
+                  <Input
+                    value={formData.backchannel_words?.join(", ") || ""}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      backchannel_words: e.target.value.split(",").map(w => w.trim()).filter(w => w)
+                    }))}
+                    placeholder="Enter backchannel words"
+                    disabled={!formData.enable_backchannel}
+                  />
+                </div>
+
+                {/* Toggle Settings */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Enable Backchannel</Label>
+                    <Switch
+                      checked={formData.enable_backchannel}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enable_backchannel: checked }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label>Enable Transcription Formatting</Label>
+                    <Switch
+                      checked={formData.enable_transcription_formatting}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enable_transcription_formatting: checked }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label>Normalize for Speech</Label>
+                    <Switch
+                      checked={formData.normalize_for_speech}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, normalize_for_speech: checked }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label>Enable Voicemail Detection</Label>
+                    <Switch
+                      checked={formData.enable_voicemail_detection}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enable_voicemail_detection: checked }))}
+                    />
+                  </div>
+                </div>
+
+                {formData.enable_voicemail_detection && (
+                  <div>
+                    <Label>Voicemail Message</Label>
+                    <Input
+                      value={formData.voicemail_message || ""}
+                      onChange={(e) => setFormData(prev => ({ ...prev, voicemail_message: e.target.value }))}
+                      placeholder="Enter voicemail message"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -357,3 +483,4 @@ export default function CreateAgent() {
     </div>
   );
 }
+
