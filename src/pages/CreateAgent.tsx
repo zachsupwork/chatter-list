@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,6 +99,14 @@ const llmVoices = [
   { id: "pqHfZKP75CvOlQylNhV4", name: "Bill" }
 ];
 
+const llmOptions = [
+  { id: "llm_default_conversation", name: "Default Conversation" },
+  { id: "llm_customer_service", name: "Customer Service" },
+  { id: "llm_sales", name: "Sales Representative" },
+  { id: "llm_technical_support", name: "Technical Support" },
+  { id: "llm_healthcare", name: "Healthcare Assistant" }
+];
+
 export default function CreateAgent() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -176,15 +183,24 @@ export default function CreateAgent() {
             <div className="space-y-4">
               <div>
                 <Label>LLM ID</Label>
-                <Input
-                  required
+                <Select
                   value={formData.response_engine.llm_id}
-                  onChange={(e) => setFormData(prev => ({
+                  onValueChange={(value) => setFormData(prev => ({
                     ...prev,
-                    response_engine: { ...prev.response_engine, llm_id: e.target.value }
+                    response_engine: { ...prev.response_engine, llm_id: value }
                   }))}
-                  placeholder="Enter LLM ID"
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select LLM type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {llmOptions.map((llm) => (
+                      <SelectItem key={llm.id} value={llm.id}>
+                        {llm.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
