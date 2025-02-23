@@ -74,7 +74,7 @@ const Index = () => {
         throw error;
       }
 
-      // The response is directly the array of calls
+      // Ensure response is an array
       if (!Array.isArray(response)) {
         console.error('Received unexpected response format:', response);
         throw new Error('Invalid response format from API');
@@ -286,4 +286,3 @@ const Index = () => {
 };
 
 export default Index;
-
