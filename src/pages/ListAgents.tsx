@@ -14,16 +14,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+interface PronunciationDictionary {
+  word: string;
+  alphabet: "ipa" | "cmu";
+  phoneme: string;
+}
+
+interface PostCallAnalysisData {
+  type: "string";
+  name: string;
+  description: string;
+  examples?: string[];
+}
+
 interface Agent {
   agent_id: string;
   agent_name: string | null;
-  voice_id: string;
-  voice_model: string | null;
-  language: string;
   response_engine: {
     type: 'retell-llm';
     llm_id: string;
   };
+  voice_id: string;
+  voice_model: string | null;
+  fallback_voice_ids: string[] | null;
   voice_temperature: number;
   voice_speed: number;
   volume: number;
@@ -36,9 +49,21 @@ interface Agent {
   reminder_max_count: number;
   ambient_sound: string | null;
   ambient_sound_volume: number;
+  language: string;
   webhook_url: string | null;
+  boosted_keywords: string[] | null;
   enable_transcription_formatting: boolean;
   opt_out_sensitive_data_storage: boolean;
+  pronunciation_dictionary: PronunciationDictionary[] | null;
+  normalize_for_speech: boolean;
+  end_call_after_silence_ms: number;
+  max_call_duration_ms: number;
+  enable_voicemail_detection: boolean;
+  voicemail_message: string;
+  voicemail_detection_timeout_ms: number;
+  post_call_analysis_data: PostCallAnalysisData[] | null;
+  begin_message_delay_ms: number;
+  ring_duration_ms: number;
   last_modification_timestamp: number;
 }
 
@@ -70,7 +95,6 @@ export default function ListAgents() {
         throw new Error("Failed to fetch API key");
       }
 
-      console.log("API key retrieved successfully");
       console.log("Making request to Retell API...");
       
       const response = await fetch("https://api.retellai.com/list-agents", {
@@ -100,6 +124,10 @@ export default function ListAgents() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString();
   };
 
   return (
@@ -149,24 +177,26 @@ export default function ListAgents() {
                   <TableHead>Voice ID</TableHead>
                   <TableHead>Voice Model</TableHead>
                   <TableHead>Language</TableHead>
+                  <TableHead>Last Modified</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {agents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-4">
+                    <TableCell colSpan={7} className="text-center py-4">
                       No agents found
                     </TableCell>
                   </TableRow>
                 ) : (
                   agents.map((agent) => (
                     <TableRow key={agent.agent_id}>
-                      <TableCell>{agent.agent_id}</TableCell>
+                      <TableCell className="font-mono text-xs">{agent.agent_id}</TableCell>
                       <TableCell>{agent.agent_name || "N/A"}</TableCell>
-                      <TableCell>{agent.voice_id}</TableCell>
+                      <TableCell className="font-mono text-xs">{agent.voice_id}</TableCell>
                       <TableCell>{agent.voice_model || "Default"}</TableCell>
                       <TableCell>{agent.language}</TableCell>
+                      <TableCell>{formatTimestamp(agent.last_modification_timestamp)}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
