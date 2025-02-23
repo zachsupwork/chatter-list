@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Table,
@@ -74,12 +73,12 @@ const Index = () => {
         throw error;
       }
 
-      if (!callsData) {
-        console.error('No data received from server');
-        throw new Error("No data received from server");
+      if (!callsData?.calls) {
+        console.error('Received data:', callsData);
+        throw new Error("No calls data in response");
       }
 
-      console.log('Received calls data:', callsData);
+      console.log('Setting calls data:', callsData.calls);
       setCalls(callsData.calls || []);
     } catch (err: any) {
       console.error('Error fetching calls:', err);
@@ -285,4 +284,3 @@ const Index = () => {
 };
 
 export default Index;
-
