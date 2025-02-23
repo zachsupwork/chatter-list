@@ -2,76 +2,80 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY') || '';
-
-async function fetchFromRetell(endpoint: string, options: RequestInit = {}) {
-  const baseURL = 'https://api.retellai.com/v2';
-  const url = `${baseURL}${endpoint}`;
-  
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${RETELL_API_KEY}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
-}
+const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY') || 'key_bc69ed16c81fa347d618b4763cb7';
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { action, call_id, limit = 50 } = await req.json();
+    const { action, agent_id } = await req.json();
+
+    // API base url
+    const baseUrl = "https://api.retellai.com";
+    
+    // Common headers for all requests
+    const headers = {
+      "Authorization": `Bearer ${RETELL_API_KEY}`,
+      "Content-Type": "application/json"
+    };
+
+    let response;
 
     switch (action) {
-      case 'listCalls': {
-        console.log('Fetching calls list...');
-        const calls = await fetchFromRetell('/list-calls', {
-          method: 'POST',
-          body: JSON.stringify({ limit }),
-        });
-        console.log('Calls fetched successfully');
+      case 'getApiKey':
         return new Response(
-          JSON.stringify(calls),
+          JSON.stringify({ RETELL_API_KEY }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      }
 
-      case 'getCall': {
-        if (!call_id) {
-          throw new Error('call_id is required');
-        }
-        console.log('Fetching call details for ID:', call_id);
-        const call = await fetchFromRetell(`/get-call/${call_id}`, {
+      case 'getAgents':
+        response = await fetch(`${baseUrl}/list-agents`, {
           method: 'GET',
+          headers
         });
-        console.log('Call details fetched successfully');
-        return new Response(
-          JSON.stringify(call),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+        break;
+
+      case 'getAgent':
+        if (!agent_id) throw new Error('Agent ID is required');
+        response = await fetch(`${baseUrl}/get-agent/${agent_id}`, {
+          method: 'GET',
+          headers
+        });
+        break;
+
+      case 'createAgent':
+        const agentData = req.body;
+        response = await fetch(`${baseUrl}/create-agent`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(agentData)
+        });
+        break;
 
       default:
-        throw new Error(`Unsupported action: ${action}`);
+        throw new Error(`Unknown action: ${action}`);
     }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to process request');
+    }
+
+    return new Response(
+      JSON.stringify(data),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
   } catch (error) {
-    console.error('Error in retell-calls function:', error);
+    console.error('Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
