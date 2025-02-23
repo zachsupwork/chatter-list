@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -11,9 +11,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDistanceToNow } from "date-fns";
+import { Clock, DollarSign, Phone, Video } from "lucide-react";
 import { Link } from "react-router-dom";
-import { AlertCircle, Phone, DollarSign } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,15 +22,18 @@ interface CallData {
   call_id: string;
   agent_id: string;
   call_status: "registered" | "ongoing" | "ended" | "error";
+  start_timestamp?: number;
+  end_timestamp?: number;
+  duration_ms?: number;
   from_number?: string;
   to_number?: string;
   direction?: "inbound" | "outbound";
-  start_timestamp?: number;
-  end_timestamp?: number;
   disconnection_reason?: string;
   call_analysis?: {
-    user_sentiment?: "Negative" | "Positive" | "Neutral" | "Unknown";
-    call_successful?: boolean;
+    call_summary: string;
+    user_sentiment: "Positive" | "Negative" | "Neutral" | "Unknown";
+    call_successful: boolean;
+    in_voicemail?: boolean;
   };
   call_cost?: {
     product_costs: {
@@ -39,6 +42,8 @@ interface CallData {
       cost: number;
     }[];
     total_duration_seconds: number;
+    total_duration_unit_price: number;
+    total_one_time_price: number;
     combined_cost: number;
   };
 }
@@ -46,61 +51,49 @@ interface CallData {
 const Index = () => {
   const [calls, setCalls] = useState<CallData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const formatDate = (date: string | number | undefined) => {
-    if (!date) return "-";
+  const fetchCalls = async () => {
     try {
-      const dateObj = typeof date === 'number' ? new Date(date) : new Date(date);
-      return formatDistanceToNow(dateObj, { addSuffix: true });
-    } catch (err) {
-      console.warn('Invalid date format:', date);
-      return "-";
+      setLoading(true);
+      console.log('Fetching calls data...');
+      
+      const { data: callsData, error } = await supabase.functions.invoke(
+        'retell-calls',
+        {
+          body: { 
+            action: 'listCalls',
+            limit: 50 
+          }
+        }
+      );
+
+      if (error) {
+        console.error('Error from Supabase:', error);
+        throw error;
+      }
+
+      if (!callsData) {
+        console.error('No data received from server');
+        throw new Error("No data received from server");
+      }
+
+      console.log('Received calls data:', callsData);
+      setCalls(callsData.calls || []);
+    } catch (err: any) {
+      console.error('Error fetching calls:', err);
+      toast({
+        variant: "destructive",
+        title: "Error fetching calls",
+        description: err.message || "Failed to load calls",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        console.log('Fetching calls data...');
-        const { data: functionData, error: functionError } = await supabase.functions.invoke(
-          'retell-calls',
-          {
-            body: { 
-              action: 'listCalls',
-              limit: 50 
-            },
-          }
-        );
-
-        if (functionError) {
-          throw new Error(functionError.message);
-        }
-
-        console.log('Received function data:', functionData);
-
-        // Ensure we have an array of calls
-        const callsArray = Array.isArray(functionData?.calls) ? functionData.calls : [];
-        console.log('Processed calls array:', callsArray);
-        
-        setCalls(callsArray);
-      } catch (err: any) {
-        const errorMessage = err.message || "Failed to fetch data";
-        console.error("Error fetching data:", err);
-        setError(errorMessage);
-        
-        toast({
-          variant: "destructive",
-          title: "Error fetching data",
-          description: errorMessage,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchCalls();
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -116,26 +109,33 @@ const Index = () => {
     }
   };
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
-              <p className="text-red-500 font-medium">{error}</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-              >
-                Retry
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const formatDuration = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    const remainingSeconds = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+    return `${seconds}s`;
+  };
+
+  const getSentimentColor = (sentiment: string) => {
+    switch (sentiment) {
+      case "Positive":
+        return "bg-green-500";
+      case "Negative":
+        return "bg-red-500";
+      case "Neutral":
+        return "bg-blue-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -157,16 +157,16 @@ const Index = () => {
                   <TableHead>Direction</TableHead>
                   <TableHead>From</TableHead>
                   <TableHead>To</TableHead>
-                  <TableHead>Started</TableHead>
+                  <TableHead>Start Time</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Cost</TableHead>
                   <TableHead>Sentiment</TableHead>
-                  <TableHead>Reason</TableHead>
+                  <TableHead>Success</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  // Show loading skeleton rows
+                  // Loading skeleton rows
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       {Array.from({ length: 11 }).map((_, j) => (
@@ -176,10 +176,10 @@ const Index = () => {
                       ))}
                     </TableRow>
                   ))
-                ) : calls && calls.length > 0 ? (
-                  // Show calls data
+                ) : calls.length > 0 ? (
+                  // Display calls data
                   calls.map((call) => (
-                    <TableRow key={call.call_id} className="hover:bg-gray-50">
+                    <TableRow key={call.call_id}>
                       <TableCell>
                         <Badge className={`${getStatusColor(call.call_status)} text-white`}>
                           {call.call_status}
@@ -188,15 +188,20 @@ const Index = () => {
                       <TableCell>
                         <Link 
                           to={`/calls/${call.call_id}`}
-                          className="font-mono text-blue-500 hover:text-blue-700 transition-colors"
+                          className="text-blue-500 hover:text-blue-700 font-mono text-sm"
                         >
                           {call.call_id}
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {call.call_type.replace('_', ' ')}
-                        </Badge>
+                        <div className="flex items-center">
+                          {call.call_type === "web_call" ? (
+                            <Video className="h-4 w-4 mr-1" />
+                          ) : (
+                            <Phone className="h-4 w-4 mr-1" />
+                          )}
+                          <span className="capitalize">{call.call_type.replace('_', ' ')}</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {call.direction && (
@@ -205,41 +210,40 @@ const Index = () => {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {call.from_number || '-'}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {call.to_number || '-'}
-                      </TableCell>
-                      <TableCell>{formatDate(call.start_timestamp)}</TableCell>
+                      <TableCell className="font-mono text-sm">{call.from_number || '-'}</TableCell>
+                      <TableCell className="font-mono text-sm">{call.to_number || '-'}</TableCell>
                       <TableCell>
-                        {call.call_cost?.total_duration_seconds
-                          ? `${call.call_cost.total_duration_seconds}s`
-                          : "-"}
+                        {call.start_timestamp ? (
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                            {formatDistanceToNow(call.start_timestamp, { addSuffix: true })}
+                          </div>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {call.duration_ms ? formatDuration(call.duration_ms) : '-'}
                       </TableCell>
                       <TableCell>
                         {call.call_cost ? (
                           <div className="flex items-center gap-1">
                             <DollarSign className="h-4 w-4 text-gray-500" />
-                            <span>${(call.call_cost.combined_cost / 100).toFixed(2)}</span>
+                            {(call.call_cost.combined_cost / 100).toFixed(2)}
                           </div>
-                        ) : "-"}
+                        ) : '-'}
                       </TableCell>
                       <TableCell>
                         {call.call_analysis?.user_sentiment ? (
-                          <Badge variant={
-                            call.call_analysis.user_sentiment === 'Positive' ? 'default' :
-                            call.call_analysis.user_sentiment === 'Negative' ? 'destructive' :
-                            'secondary'
-                          }>
+                          <Badge className={`${getSentimentColor(call.call_analysis.user_sentiment)} text-white`}>
                             {call.call_analysis.user_sentiment}
                           </Badge>
                         ) : '-'}
                       </TableCell>
                       <TableCell>
-                        <span className="capitalize text-sm text-gray-600">
-                          {call.disconnection_reason?.replace(/_/g, " ") || "-"}
-                        </span>
+                        {call.call_analysis?.call_successful !== undefined ? (
+                          <Badge className={call.call_analysis.call_successful ? 'bg-green-500' : 'bg-red-500'}>
+                            {call.call_analysis.call_successful ? 'Yes' : 'No'}
+                          </Badge>
+                        ) : '-'}
                       </TableCell>
                     </TableRow>
                   ))
