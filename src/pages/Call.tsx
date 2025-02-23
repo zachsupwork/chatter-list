@@ -25,6 +25,19 @@ interface CallData {
     call_summary: string;
     user_sentiment: "Positive" | "Negative" | "Neutral" | "Unknown";
     call_successful: boolean;
+    in_voicemail?: boolean;
+  };
+  latency?: {
+    e2e?: {
+      p50: number;
+      p90: number;
+      p95: number;
+      p99: number;
+      max: number;
+      min: number;
+      num: number;
+      values: number[];
+    };
   };
 }
 
@@ -50,10 +63,12 @@ const Call = () => {
       );
 
       if (error) {
+        console.error('Error from Supabase:', error);
         throw error;
       }
 
       if (!data) {
+        console.error('No data received from server');
         throw new Error("No data received from the server");
       }
 
@@ -82,7 +97,7 @@ const Call = () => {
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [callId, call?.call_status]);
+  }, [callId]);
 
   if (loading) {
     return (
