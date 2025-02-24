@@ -7,6 +7,7 @@ import { PhoneIncoming } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { RETELL_API_KEY } from "../../src/lib/retell";
 
 const ImportPhoneNumber = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -26,31 +27,38 @@ const ImportPhoneNumber = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'importPhoneNumber',
-            phone_number: phoneNumber,
-            termination_uri: terminationUri,
-            sip_trunk_auth_username: sipUsername || null,
-            sip_trunk_auth_password: sipPassword || null,
-            inbound_agent_id: inboundAgentId || null,
-            outbound_agent_id: outboundAgentId || null,
-            nickname: nickname || null,
-            inbound_webhook_url: webhookUrl || null,
+      const response = await fetch('https://api.retellai.com/import-phone-number', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${RETELL_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              phone_number: phoneNumber,
+              termination_uri: terminationUri,
+              sip_trunk_auth_username: sipUsername || null,
+              sip_trunk_auth_password: sipPassword || null,
+              inbound_agent_id: inboundAgentId || null,
+              outbound_agent_id: outboundAgentId || null,
+              nickname: nickname || null,
+              inbound_webhook_url: webhookUrl || null,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            toast({
+              title: "Phone number imported successfully",
+              description: `Number: ${data.phone_number_pretty || data.phone_number}`,
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Error importing phone number",
+              description: data.message || "Something went wrong",
+            });
           }
-        }
-      );
-
-      if (error) throw error;
-
-      toast({
-        title: "Phone number imported successfully",
-        description: `Number: ${data.phone_number_pretty || data.phone_number}`,
-      });
-
-      navigate("/");
     } catch (err: any) {
       console.error('Error importing phone number:', err);
       toast({

@@ -1,0 +1,13 @@
+retell-calls supa function
+
+added cases
+
+getApiKey,
+getCall,
+createPhoneNumbers,
+CreatePhoneCall,
+listAgents,
+validatePhoneNumber,
+createPhoneNumber,
+imprtPhoneNumber
+

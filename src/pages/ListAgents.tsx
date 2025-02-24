@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import clsx from "clsx";
 
+import { RETELL_API_KEY } from "../../src/lib/retell";
+
 interface PronunciationDictionary {
   word: string;
   alphabet: "ipa" | "cmu";
@@ -81,28 +83,28 @@ export default function ListAgents() {
   const fetchAgents = async () => {
     try {
       setIsLoading(true);
-      console.log("Fetching API key from Supabase...");
-      const { data: apiKeyData, error: apiKeyError } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'getApiKey'
-          }
-        }
-      );
-      console.log(apiKeyData);
+      // console.log("Fetching API key from Supabase...");
+      // const { data: apiKeyData, error: apiKeyError } = await supabase.functions.invoke(
+      //   'retell-calls',
+      //   {
+      //     body: {
+      //       action: 'getApiKey'
+      //     }
+      //   }
+      // );
+      // console.log(apiKeyData);
 
-      if (apiKeyError || !apiKeyData?.RETELL_API_KEY) {
-        console.error("Error fetching API key:", apiKeyError);
-        throw new Error("Failed to fetch API key");
-      }
+      // if (apiKeyError || !apiKeyData?.RETELL_API_KEY) {
+      //   console.error("Error fetching API key:", apiKeyError);
+      //   throw new Error("Failed to fetch API key");
+      // }
 
       console.log("Making request to Retell API...");
       
       const response = await fetch("https://api.retellai.com/list-agents", {
         method: 'GET',
         headers: {
-          "Authorization": `Bearer ${apiKeyData.RETELL_API_KEY}`,
+          'Authorization': `Bearer ${RETELL_API_KEY}`,
           "Content-Type": "application/json"
         }
       });

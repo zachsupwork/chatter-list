@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { RETELL_API_KEY } from "../../src/lib/retell";
 
 interface PostCallAnalysisData {
   type: "string";
@@ -115,7 +116,7 @@ export default function CreateAgent() {
   const [formData, setFormData] = useState<AgentForm>({
     response_engine: {
       type: "retell-llm",
-      llm_id: ""
+      llm_id: "gpt4o"
     },
     voice_id: "",
     agent_name: "",
@@ -154,15 +155,6 @@ export default function CreateAgent() {
     setIsLoading(true);
 
     try {
-      const { data: { RETELL_API_KEY } } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'getApiKey'
-          }
-        }
-      );
-
       const response = await fetch("https://api.retellai.com/create-agent", {
         method: "POST",
         headers: {

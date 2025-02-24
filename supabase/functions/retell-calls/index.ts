@@ -1,12 +1,13 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { RETELL_API_KEY } from "../../../src/lib/retell";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY') || 'key_bc69ed16c81fa347d618b4763cb7';
+// const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY') || 'key_bc69ed16c81fa347d618b4763cb7';
 
 const createPhoneCall = async (fromNumber: string, toNumber: string) => {
   const apiUrl = "https://api.retellai.com/v2/create-phone-call";
@@ -41,8 +42,6 @@ const createPhoneCall = async (fromNumber: string, toNumber: string) => {
 
 serve(async (req) => {
 
-  // Handle CORS preflight requests
-
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -66,15 +65,8 @@ serve(async (req) => {
     } = await req.json();
 
     switch (action) {
-      case 'getApiKey': {
-        return new Response(
-          JSON.stringify({ RETELL_API_KEY }),  
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-        
+
       case 'listCalls': {
-        console.log('Fetching calls list...');
         const response = await fetch('https://api.retellai.com/v2/list-calls', {
           method: 'POST',
           headers: {
@@ -127,18 +119,6 @@ serve(async (req) => {
         );
       }
         
-      case 'listPhoneNumbers': {
-        const response = await fetch('https://api.retellai.com/list-phone-numbers', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${RETELL_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        const data = await response.json();
-        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
-      }
-        
       case 'createPhoneCall': {
           if (!from_number || !to_number) {
             throw new Error('Both from_number and to_number are required');
@@ -152,55 +132,6 @@ serve(async (req) => {
           );
       }
         
-      case 'listAgents': {
-        try {
-          const response = await fetch('https://api.retellai.com/v2/create-web-call', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${RETELL_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({action: 'listAgents'}),
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            return new Response(JSON.stringify({ data: data.agents }), { status: 200 });
-          } else {
-            return new Response(JSON.stringify({ error: data.message || 'Unknown error' }), { status: 400 });
-          }
-        } catch (err) {
-          return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-        }
-      }
-        
-      case 'validatePhoneNumber': {
-          try {
-            const response = await fetch('https://api.retellai.com/create-batch-call', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${RETELL_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-              action: 'validatePhoneNumber',
-              from_number: from_number,
-              }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-              return new Response(JSON.stringify({ data: data }), { status: 200 });
-            } else {
-            return new Response(JSON.stringify({ error: data.message || 'Unknown error' }), { status: 400 });
-            }
-          } catch (err) {
-            return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-          }
-      }
-      
       case 'createPhoneNumber': {
         try {
           const response = await fetch('https://api.retellai.com/create-phone-number', {
@@ -229,6 +160,7 @@ serve(async (req) => {
           return new Response(JSON.stringify({ error: err.message }), { status: 500 });
         }
       }
+        
       case 'importPhoneNumber': {
         try {
           const response = await fetch('https://api.retellai.com/import-phone-number', {
@@ -260,8 +192,7 @@ serve(async (req) => {
           return new Response(JSON.stringify({ error: err.message }), { status: 500 });
         }
       }
-        
-        
+
       default:
         throw new Error(`Unsupported action: ${action}`);
     }

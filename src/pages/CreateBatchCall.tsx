@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { RETELL_API_KEY } from "../../src/lib/retell";
 
 interface BatchCallTask {
   to_number: string;
@@ -41,17 +42,23 @@ export default function CreateBatchCall() {
   useEffect(() => {
     const fetchPhoneNumbers = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke(
-          'retell-calls',
-          {
-            body: {
-              action: 'listPhoneNumbers'
+        const response = await fetch('https://api.retellai.com/list-phone-numbers', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${RETELL_API_KEY}`,
+              'Content-Type': 'application/json',
             }
-          }
-        );
+          });
 
-        if (error) throw error;
-        setFromNumbers(data);
+          if (!response.ok) {
+              const errorText = await response.text();
+              console.error("Retell API error:", response.status, errorText);
+              throw new Error(`Failed to fetch phonenumber: ${response.status} ${errorText}`);
+            }
+      
+          const data = await response.json();
+          console.log("phone number fetched successfully:", data);
+          setFromNumbers(data);
       } catch (err: any) {
         console.error('Error fetching phone numbers:', err);
         toast({
@@ -96,26 +103,13 @@ export default function CreateBatchCall() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      // First validate the phone number using the same endpoint as single calls
-      const { data: validationData, error: validationError } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'validatePhoneNumber',
-            from_number: formData.from_number,
-          }
-        }
-      );
-
-      if (validationError) throw validationError;
-
       // If validation passes, proceed with batch call creation
-      const response = await fetch("/api/create-batch-call", {
+      const response = await fetch("https://api.retellai.com/create-batch-call", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${RETELL_API_KEY}`
         },
         body: JSON.stringify(formData),
       });
@@ -142,8 +136,7 @@ export default function CreateBatchCall() {
     } finally {
       setIsLoading(false);
     }
-  };
-
+  }
   return (
     <div className="container mx-auto py-8">
       <Card>

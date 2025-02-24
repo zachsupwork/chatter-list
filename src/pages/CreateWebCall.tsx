@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import { RetellWebClient } from "retell-client-js-sdk";
+import { RETELL_API_KEY } from "../../src/lib/retell";
 
 interface Agent {
   agent_id: string;
@@ -34,34 +35,24 @@ const CreateWebCall = () => {
       const fetchAgents = async () => {
         try {
           setFetchingAgents(true);
-          
-          const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
-            'retell-calls',
-            {
-              body: {
-                action: 'getApiKey'
-              }
+
+         const response = await fetch('https://api.retellai.com/list-agents', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${RETELL_API_KEY}`,
+              'Content-Type': 'application/json',
             }
-          );
+          });
 
-          if (apiError || !apiResponse?.RETELL_API_KEY) {
-            throw new Error("Failed to fetch API key");
-          }
-
-          const { data: agentsData, error: agentsError } = await supabase.functions.invoke(
-            'retell-calls',
-            {
-              body: {
-                action: 'listAgents'
-              }
+          if (!response.ok) {
+              const errorText = await response.text();
+              console.error("Retell API error:", response.status, errorText);
+              throw new Error(`Failed to fetch web call phonenumber: ${response.status} ${errorText}`);
             }
-          );
-
-          if (agentsError) {
-            throw agentsError;
-          }
-
-          setAgents(agentsData || []);
+      
+          const data = await response.json();
+          console.log("web call number fetched successfully:", data);
+          setAgents(data);
         } catch (err: any) {
           console.error('Error fetching agents:', err);
           toast({
@@ -241,32 +232,33 @@ const CreateWebCall = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'createWebCall',
-            agent_id: selectedAgentId,
-          }
-        }
-      );
+      const response = await fetch("https://api.retellai.com/v2/create-web-call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${RETELL_API_KEY}`
+        },
+        body: JSON.stringify({agent_id: selectedAgentId}),
+      });
 
-      if (error) {
-        throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create web call");
       }
 
-      if (!data || !data.call_id || !data.access_token) {
+      toast({
+        title: "Success",
+        description: `Web call created with ID: ${data.agent_id}`,
+      });
+
+      if (!data || !data.agent_id || !data.access_token) {
         throw new Error("Invalid response from server");
       }
 
       console.log('Web call created successfully:', data);
       setAccessToken(data.access_token);
       setShowCodeSnippet(true);
-
-      toast({
-        title: "Web call created successfully",
-        description: `Call ID: ${data.call_id}`,
-      });
     } catch (err: any) {
       console.error('Error creating web call:', err);
       toast({

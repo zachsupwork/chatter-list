@@ -7,6 +7,7 @@ import { Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { RETELL_API_KEY } from "../../src/lib/retell";
 
 const CreatePhoneNumber = () => {
   const [areaCode, setAreaCode] = useState("");
@@ -23,29 +24,35 @@ const CreatePhoneNumber = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'createPhoneNumber',
-            area_code: parseInt(areaCode),
-            nickname: nickname || null,
-            inbound_agent_id: inboundAgentId || null,
-            outbound_agent_id: outboundAgentId || null,
-            inbound_webhook_url: webhookUrl || null,
+      const response = await fetch('https://api.retellai.com/create-phone-number', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${RETELL_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              area_code: areaCode,
+              nickname: nickname || null,
+              inbound_agent_id: inboundAgentId || null,
+              outbound_agent_id: outboundAgentId || null,
+              inbound_webhook_url: webhookUrl || null,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            toast({
+              title: "Phone number created successfully",
+              description: `Number: ${data.phone_number_pretty || data.phone_number}`,
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Phone number create failed",
+              description: data.message || "Something went wrong",
+            });
           }
-        }
-      );
-
-      if (error) throw error;
-
-      toast({
-        title: "Phone number created successfully",
-        description: `Number: ${data.phone_number_pretty || data.phone_number}`,
-      });
-
-      // Redirect to phone numbers list (we'll implement this later)
-      navigate("/");
     } catch (err: any) {
       console.error('Error creating phone number:', err);
       toast({

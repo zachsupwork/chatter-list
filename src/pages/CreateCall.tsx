@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RETELL_API_KEY } from "../../src/lib/retell";
 
 interface PhoneNumber {
   phone_number: string;
@@ -30,29 +31,35 @@ const CreateCall = () => {
 
   useEffect(() => {
     const fetchPhoneNumbers = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke(
-          'retell-calls',
-          {
-            body: {
-              action: 'listPhoneNumbers'
+      try {                  
+            const response = await fetch("https://api.retellai.com/list-phone-numbers", {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${RETELL_API_KEY}`,
+                "Content-Type": "application/json"
+              }
+            });
+      
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("Retell API error:", response.status, errorText);
+              throw new Error(`Failed to fetch phonenumber: ${response.status} ${errorText}`);
             }
+      
+            const data = await response.json();
+            console.log("Phone number fetched successfully:", data);
+            setFromNumbers(data);
+          } catch (err: any) {
+              console.error('Error fetching phone numbers:', err);
+              toast({
+                variant: "destructive",
+                title: "Error loading phone numbers",
+                description: err.message || "Failed to load phone numbers",
+              });
+          } finally {
+            setLoadingNumbers(false);
           }
-        );
-
-        if (error) throw error;
-        setFromNumbers(data);
-      } catch (err: any) {
-        console.error('Error fetching phone numbers:', err);
-        toast({
-          variant: "destructive",
-          title: "Error loading phone numbers",
-          description: err.message || "Failed to load phone numbers",
-        });
-      } finally {
-        setLoadingNumbers(false);
-      }
-    };
+        };
 
     fetchPhoneNumbers();
   }, [toast]);

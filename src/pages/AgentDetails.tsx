@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { RETELL_API_KEY } from "../../src/lib/retell";
 
 interface Agent {
   agent_id: string;
@@ -81,28 +82,12 @@ export default function AgentDetails() {
       }
 
       setIsLoading(true);
-      console.log("Fetching API key from Supabase...");
-      const { data, error: apiKeyError } = await supabase.functions.invoke(
-        'retell-calls',
-        {
-          body: {
-            action: 'getApiKey'
-          }
-        }
-      );
-
-      if (apiKeyError || !data?.RETELL_API_KEY) {
-        console.error("Error fetching API key:", apiKeyError);
-        throw new Error("Failed to fetch API key");
-      }
-
-      console.log("API key retrieved successfully");
       console.log("Making request to Retell API...");
       
       const response = await fetch(`https://api.retellai.com/get-agent/${agentId}`, {
         method: 'GET',
         headers: {
-          "Authorization": `Bearer ${data.RETELL_API_KEY}`,
+          "Authorization": `Bearer ${RETELL_API_KEY}`,
           "Content-Type": "application/json"
         }
       });
