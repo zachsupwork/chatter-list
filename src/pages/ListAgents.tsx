@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import clsx from "clsx";
 
 interface PronunciationDictionary {
   word: string;
@@ -89,6 +90,7 @@ export default function ListAgents() {
           }
         }
       );
+      console.log(apiKeyData);
 
       if (apiKeyError || !apiKeyData?.RETELL_API_KEY) {
         console.error("Error fetching API key:", apiKeyError);
