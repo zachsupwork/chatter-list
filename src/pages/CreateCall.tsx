@@ -101,18 +101,24 @@ const CreateCall = () => {
     try {
       // If there's only one number, use createPhoneCall
       if (validNumbers.length === 1) {
-        const { data, error } = await supabase.functions.invoke(
-          'retell-calls',
-          {
-            body: {
+        const response = await fetch("https://api.retellai.com/v2/create-phone-call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${RETELL_API_KEY}`
+        },
+          body: JSON.stringify({
               action: 'createPhoneCall',
               from_number: fromNumber,
               to_number: validNumbers[0].number,
-            }
-          }
-        );
+          })
+        });
 
-        if (error) throw error;
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to create phone call");
+        }
 
         toast({
           title: "Call created successfully",
