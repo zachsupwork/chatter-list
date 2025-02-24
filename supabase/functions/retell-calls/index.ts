@@ -7,8 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// const RETELL_API_KEY = Deno.env.get('RETELL_API_KEY') || 'key_bc69ed16c81fa347d618b4763cb7';
-
 const createPhoneCall = async (fromNumber: string, toNumber: string) => {
   const apiUrl = "https://api.retellai.com/v2/create-phone-call";
 
@@ -51,17 +49,6 @@ serve(async (req) => {
       action,
       call_id,
       limit = 50,
-      from_number,
-      to_number,
-      area_code,
-      nickname,
-      phone_number,
-      inbound_agent_id,
-      outbound_agent_id,
-      inbound_webhook_url,
-      termination_uri,
-      sip_trunk_auth_username,
-      sip_trunk_auth_password,
     } = await req.json();
 
     switch (action) {
@@ -117,80 +104,6 @@ serve(async (req) => {
           JSON.stringify(data),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      }
-        
-      case 'createPhoneCall': {
-          if (!from_number || !to_number) {
-            throw new Error('Both from_number and to_number are required');
-          }
-
-          const result = await createPhoneCall(from_number, to_number);
-
-          return new Response(
-            JSON.stringify({ success: true, call_id: result.call_id }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-      }
-        
-      case 'createPhoneNumber': {
-        try {
-          const response = await fetch('https://api.retellai.com/create-phone-number', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${RETELL_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              area_code: area_code,
-              nickname: nickname || null,
-              inbound_agent_id: inbound_agent_id || null,
-              outbound_agent_id: outbound_agent_id || null,
-              inbound_webhook_url: inbound_webhook_url || null,
-            }),
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            return new Response(JSON.stringify({ data: data }), { status: 200 });
-          } else {
-            return new Response(JSON.stringify({ error: data.message || 'Unknown error' }), { status: 400 });
-          }
-        } catch (err) {
-          return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-        }
-      }
-        
-      case 'importPhoneNumber': {
-        try {
-          const response = await fetch('https://api.retellai.com/import-phone-number', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${RETELL_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              phone_number,
-              termination_uri,
-              sip_trunk_auth_username: sip_trunk_auth_username || null,
-              sip_trunk_auth_password: sip_trunk_auth_password || null,
-              inbound_agent_id: inbound_agent_id || null,
-              outbound_agent_id: outbound_agent_id || null,
-              nickname: nickname || null,
-              inbound_webhook_url: inbound_webhook_url || null,
-            }),
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            return new Response(JSON.stringify({ data: data }), { status: 200 });
-          } else {
-            return new Response(JSON.stringify({ error: data.message || 'Unknown error' }), { status: 400 });
-          }
-        } catch (err) {
-          return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-        }
       }
 
       default:

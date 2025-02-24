@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PhoneIncoming } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { RETELL_API_KEY } from "../../src/lib/retell";
@@ -58,7 +57,8 @@ const ImportPhoneNumber = () => {
               title: "Error importing phone number",
               description: data.message || "Something went wrong",
             });
-          }
+      }
+      navigate('/');
     } catch (err: any) {
       console.error('Error importing phone number:', err);
       toast({
