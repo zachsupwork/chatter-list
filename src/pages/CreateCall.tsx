@@ -4,11 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Phone, Plus, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RETELL_API_KEY } from "../../src/lib/retell";
+
+interface BatchCallTask {
+  to_number: string;
+  retell_llm_dynamic_variables?: Record<string, any>;
+}
+
+interface BatchCallForm {
+  from_number: string;
+  name: string;
+  tasks: BatchCallTask[];
+  trigger_timestamp?: number;
+}
 
 interface PhoneNumber {
   phone_number: string;
@@ -22,6 +33,11 @@ interface ToNumberEntry {
 
 const CreateCall = () => {
   const [fromNumbers, setFromNumbers] = useState<PhoneNumber[]>([]);
+  const [formData, setFormData] = useState<BatchCallForm>({
+      from_number: "",
+      name: "Agent Batch Call",
+      tasks: [{ to_number: "" }],
+    });
   const [fromNumber, setFromNumber] = useState("");
   const [toNumbers, setToNumbers] = useState<ToNumberEntry[]>([{ number: "" }]);
   const [loading, setLoading] = useState(false);
@@ -66,6 +82,10 @@ const CreateCall = () => {
 
   const handleAddNumber = () => {
     setToNumbers([...toNumbers, { number: "" }]);
+    setFormData(prev => ({
+      ...prev,
+      tasks: [...prev.tasks, { to_number: "" }]
+    }));
   };
 
   const handleRemoveNumber = (index: number) => {
@@ -73,12 +93,25 @@ const CreateCall = () => {
       const newNumbers = toNumbers.filter((_, i) => i !== index);
       setToNumbers(newNumbers);
     }
+    if (formData.tasks.length > 1) {
+      const newTasks = formData.tasks.filter((_, i) => i !== index);
+      setFormData(prev => ({
+        ...prev,
+        tasks: newTasks
+      }));
+    }
   };
 
   const handleNumberChange = (index: number, value: string) => {
     const newNumbers = [...toNumbers];
     newNumbers[index] = { number: value };
     setToNumbers(newNumbers);
+    const newTasks = [...formData.tasks];
+    newTasks[index] = { ...newTasks[index], to_number: value };
+    setFormData(prev => ({
+      ...prev,
+      tasks: newTasks
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -127,23 +160,24 @@ const CreateCall = () => {
 
         navigate(`/calls/${data.call_id}`);
       } else {
-        // If there are multiple numbers, use createBatchCall
-        const { data, error } = await supabase.functions.invoke(
-          'retell-calls',
-          {
-            body: {
-              action: 'createBatchCall',
-              from_number: fromNumber,
-              tasks: validNumbers.map(n => ({ to_number: n.number }))
-            }
-          }
-        );
+        const response = await fetch("https://api.retellai.com/create-batch-call", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${RETELL_API_KEY}`
+          },
+          body: JSON.stringify(formData),
+        });
 
-        if (error) throw error;
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to create batch call");
+        }
 
         toast({
-          title: "Batch call created successfully",
-          description: `Created ${data.summary.successful} calls, ${data.summary.failed} failed`,
+          title: "Success",
+          description: `Batch call created with ID: ${data.batch_call_id}`,
         });
 
         navigate("/calls");
@@ -178,10 +212,13 @@ const CreateCall = () => {
                 </label>
                 <Select
                   value={fromNumber}
-                  onValueChange={setFromNumber}
+                  onValueChange={(value) => {
+                    setFormData(prev => ({ ...prev, from_number: value }))
+                    setFromNumber(value)
+                  }}
                 >
                   <SelectTrigger className="font-mono">
-                    <SelectValue placeholder="Select a phone number" />
+                    <SelectValue placeholder="Select a phone number"/>
                   </SelectTrigger>
                   <SelectContent>
                     {fromNumbers.map((number) => (
