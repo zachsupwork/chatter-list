@@ -103,11 +103,11 @@ const llmVoices = [
 ];
 
 const llmOptions = [
-  { id: "llm_default_conversation", name: "Default Conversation" },
-  { id: "llm_customer_service", name: "Customer Service" },
-  { id: "llm_sales", name: "Sales Representative" },
-  { id: "llm_technical_support", name: "Technical Support" },
-  { id: "llm_healthcare", name: "Healthcare Assistant" }
+  { id: "llm_df70883b8a11aa8d96b5fbc522f2", name: "Default Conversation" },
+  { id: "llm_bb0951fa5b938ee674f9d445eca4", name: "Customer Service" },
+  { id: "llm_acb9a357fae1154c587b9c599cb1", name: "Sales Representative" },
+  { id: "llm_5f23834a1e91167bc63041843ec2", name: "Technical Support" },
+  { id: "llm_5f23834a1e91167bc63041843ec2", name: "Healthcare Assistant" }
 ];
 
 export default function CreateAgent() {
