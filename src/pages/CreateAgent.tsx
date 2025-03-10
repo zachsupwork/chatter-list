@@ -116,7 +116,7 @@ export default function CreateAgent() {
   const [formData, setFormData] = useState<AgentForm>({
     response_engine: {
       type: "retell-llm",
-      llm_id: "gpt4o"
+      llm_id: "gpt-4o"
     },
     voice_id: "",
     agent_name: "",
