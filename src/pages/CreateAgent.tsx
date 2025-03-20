@@ -103,12 +103,8 @@ const llmVoices = [
 ];
 
 const llmOptions = [
-  { id: "llm_df70883b8a11aa8d96b5fbc522f2", name: "Default Conversation" },
-  { id: "llm_bb0951fa5b938ee674f9d445eca4", name: "Customer Service" },
-  { id: "llm_acb9a357fae1154c587b9c599cb1", name: "Sales Representative" },
-  { id: "llm_5f23834a1e91167bc63041843ec2", name: "Technical Support" },
-  { id: "llm_5f23834a1e91167bc63041843ec2", name: "Healthcare Assistant" }
-];
+  { id: "llm_052e2d74218db81a4e8f7d9f864e", name: "Default Conversation" },
+ ];
 
 export default function CreateAgent() {
   const navigate = useNavigate();
