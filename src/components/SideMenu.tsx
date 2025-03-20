@@ -16,7 +16,7 @@ const SideMenu = () => {
   const location = useLocation();
 
   const menuItems = [
-    { icon: Home, label: "Home", path: "/agents" },
+    { icon: Home, label: "Home", path: "/" },
     { icon: Users, label: "List Agents", path: "/agents" },
     { icon: UserPlus, label: "Create Agent", path: "/create-agent" },
     { icon: Phone, label: "Create Phone Call", path: "/create-call" },
