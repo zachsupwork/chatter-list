@@ -22,7 +22,7 @@ function App() {
         <SideMenu />
         <div className="flex-1">
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Navigate to="/agents" />} />
             <Route path="/calls/:callId" element={<Call />} />
             <Route path="/create-call" element={<CreateCall />} />
             <Route path="/create-web-call" element={<CreateWebCall />} />
